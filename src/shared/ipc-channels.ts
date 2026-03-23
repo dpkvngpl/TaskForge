@@ -30,6 +30,25 @@ export const IPC = {
   APP_MINIMIZE: 'app:minimize',
   APP_QUIT: 'app:quit',
 
+  // Notifications
+  NOTIFICATIONS_GET_OVERDUE_COUNT: 'notifications:getOverdueCount',
+
+  // Recurrence
+  RECURRENCE_PROCESS: 'recurrence:process',
+  RECURRENCE_BUILD_RRULE: 'recurrence:buildRRule',
+  RECURRENCE_DESCRIBE: 'recurrence:describe',
+  RECURRENCE_GET_NEXT_DATES: 'recurrence:getNextDates',
+
+  // Templates (additional)
+  TEMPLATES_UPDATE: 'templates:update',
+
+  // Connectors
+  CONNECTOR_LIST: 'connector:list',
+  CONNECTOR_AUTHENTICATE: 'connector:authenticate',
+  CONNECTOR_DEAUTHENTICATE: 'connector:deauthenticate',
+  CONNECTOR_FETCH: 'connector:fetch',
+  CONNECTOR_CONVERT_TO_TASK: 'connector:convertToTask',
+
   // Events (main → renderer)
   TRIGGER_QUICK_ADD: 'trigger:quick-add',
   TASK_REMINDER: 'task:reminder',

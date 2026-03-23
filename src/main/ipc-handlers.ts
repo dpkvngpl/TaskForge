@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import { getAllTasks, getTaskById, createTask, updateTask, deleteTask, reorderTask, batchUpdateStatus } from './database/tasks';
 import { getSetting, setSetting, getAllSettings } from './database/settings';
 import { getRecentActivity, undoLastAction } from './database/activity-log';
+import { checkOverdueOnStartup } from './services/notification';
 import { IPC } from '../shared/ipc-channels';
 
 export function registerTaskHandlers(): void {
@@ -54,5 +55,10 @@ export function registerTaskHandlers(): void {
 
   ipcMain.handle(IPC.ACTIVITY_LOG_UNDO, () => {
     return undoLastAction();
+  });
+
+  // ---- Notifications ----
+  ipcMain.handle(IPC.NOTIFICATIONS_GET_OVERDUE_COUNT, () => {
+    return checkOverdueOnStartup();
   });
 }

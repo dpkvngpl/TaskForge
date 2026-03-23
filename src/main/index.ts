@@ -1,9 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Notification } from 'electron';
 import path from 'path';
 import { initDatabase, closeDatabase } from './database/index';
 import { registerTaskHandlers } from './ipc-handlers';
 import { BackupService } from './services/backup';
-import { startReminderService, stopReminderService } from './services/reminder';
+import { startNotificationService, stopNotificationService, checkOverdueOnStartup } from './services/notification';
 import { createTray } from './tray';
 
 let mainWindow: BrowserWindow | null = null;
@@ -90,8 +90,18 @@ async function bootstrap(): Promise<void> {
   createWindow();
   createTray(mainWindow!, isDev, isQuitting, (val: boolean) => { isQuitting = val; });
 
-  // Start reminder service
-  startReminderService(mainWindow!);
+  // Start notification service
+  startNotificationService(mainWindow!);
+
+  // Check overdue tasks on startup
+  const overdueCount = checkOverdueOnStartup();
+  if (overdueCount > 0) {
+    const notification = new Notification({
+      title: 'TaskForge',
+      body: `You have ${overdueCount} overdue task${overdueCount > 1 ? 's' : ''}`,
+    });
+    notification.show();
+  }
 }
 
 // Single instance lock — prevent multiple instances
@@ -127,6 +137,6 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
-  stopReminderService();
+  stopNotificationService();
   closeDatabase();
 });
