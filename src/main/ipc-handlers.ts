@@ -2,6 +2,7 @@ import { ipcMain } from 'electron';
 import { getAllTasks, getTaskById, createTask, updateTask, deleteTask, reorderTask, batchUpdateStatus } from './database/tasks';
 import { getSetting, setSetting, getAllSettings } from './database/settings';
 import { getRecentActivity, undoLastAction } from './database/activity-log';
+import { getAllTemplates, createTemplate, updateTemplate, deleteTemplate, createTaskFromTemplate } from './database/templates';
 import { checkOverdueOnStartup } from './services/notification';
 import { processRecurrences, buildRRule, describeRRule } from './services/recurrence';
 import { RRule } from 'rrule';
@@ -58,6 +59,13 @@ export function registerTaskHandlers(): void {
   ipcMain.handle(IPC.ACTIVITY_LOG_UNDO, () => {
     return undoLastAction();
   });
+
+  // ---- Templates ----
+  ipcMain.handle(IPC.TEMPLATES_GET_ALL, () => getAllTemplates());
+  ipcMain.handle(IPC.TEMPLATES_CREATE, (_event, template) => createTemplate(template));
+  ipcMain.handle(IPC.TEMPLATES_UPDATE, (_event, id: string, changes) => updateTemplate(id, changes));
+  ipcMain.handle(IPC.TEMPLATES_DELETE, (_event, id: string) => { deleteTemplate(id); });
+  ipcMain.handle(IPC.TEMPLATES_CREATE_TASK, (_event, templateId: string) => createTaskFromTemplate(templateId));
 
   // ---- Notifications ----
   ipcMain.handle(IPC.NOTIFICATIONS_GET_OVERDUE_COUNT, () => {
