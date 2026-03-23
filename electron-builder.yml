@@ -1,0 +1,41 @@
+appId: com.taskforge.local
+productName: TaskForge
+copyright: Private Local Use Only
+
+directories:
+  output: dist
+  buildResources: resources
+
+files:
+  - "dist-main/**/*"
+  - "dist-preload/**/*"
+  - "dist-renderer/**/*"
+  - "node_modules/**/*"
+  - "package.json"
+
+extraResources:
+  - from: "migrations"
+    to: "migrations"
+  - from: "resources"
+    to: "resources"
+
+win:
+  target:
+    - target: dir
+      arch: [x64]
+  icon: resources/icon.ico
+
+mac:
+  target:
+    - target: dir
+      arch: [x64, arm64]
+  icon: resources/icon.png
+
+linux:
+  target:
+    - target: dir
+      arch: [x64]
+  icon: resources/icon.png
+
+# Important: include native module (better-sqlite3) rebuild
+npmRebuild: true
