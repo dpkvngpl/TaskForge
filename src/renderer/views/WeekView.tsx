@@ -8,8 +8,9 @@ const SLOTS = ['morning', 'afternoon', 'evening'] as const;
 const SLOT_LABELS: Record<string, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
 
 export function WeekView() {
-  const tasks = useTaskStore((s) => s.tasks);
+  const { tasks, updateTask } = useTaskStore();
   const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const weekStart = useMemo(() => {
     const base = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -18,7 +19,6 @@ export function WeekView() {
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
-  // Group tasks by day + slot
   const scheduledTasks = useMemo(() => {
     const map: Record<string, Task[]> = {};
     for (const task of tasks) {
@@ -31,18 +31,34 @@ export function WeekView() {
     return map;
   }, [tasks]);
 
-  // Unscheduled tasks (no scheduled_date or no scheduled_slot, not done)
   const unscheduled = useMemo(
     () => tasks.filter((t) => (!t.scheduled_date || !t.scheduled_slot) && t.status !== 'done' && t.status !== 'archived'),
     [tasks]
   );
 
-  // Count scheduled
   const scheduledCount = useMemo(() => tasks.filter((t) => t.scheduled_date && t.scheduled_slot && t.status !== 'done').length, [tasks]);
   const totalActive = useMemo(() => tasks.filter((t) => t.status !== 'done' && t.status !== 'archived').length, [tasks]);
 
   const weekLabel = `${format(days[0], 'd')} - ${format(days[6], 'd MMM yyyy')}`;
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  // Click a cell to schedule the selected task there
+  const handleCellClick = async (day: Date, slot: string) => {
+    if (!selectedTaskId) return;
+    await updateTask(selectedTaskId, {
+      scheduled_date: format(day, 'yyyy-MM-dd'),
+      scheduled_slot: slot,
+    });
+    setSelectedTaskId(null);
+  };
+
+  // Click a scheduled task to unschedule it
+  const handleUnschedule = async (taskId: string) => {
+    await updateTask(taskId, {
+      scheduled_date: null,
+      scheduled_slot: null,
+    });
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -58,16 +74,20 @@ export function WeekView() {
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m9 18 6-6-6-6" /></svg>
           </button>
         </div>
-        <button onClick={() => setWeekOffset(0)} className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 border border-white/10 hover:bg-white/5">
-          Today
-        </button>
+        <button onClick={() => setWeekOffset(0)} className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-300 border border-white/10 hover:bg-white/5">Today</button>
       </div>
+
+      {selectedTaskId && (
+        <div className="px-4 py-2 bg-indigo-600/10 border-b border-indigo-500/20 text-xs text-indigo-300 flex items-center gap-2">
+          <span>Click a time slot to schedule the selected task</span>
+          <button onClick={() => setSelectedTaskId(null)} className="ml-auto text-indigo-400 hover:text-white">Cancel</button>
+        </div>
+      )}
 
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Main grid */}
         <div className="flex-1 overflow-auto">
           <table className="w-full border-collapse">
-            {/* Day headers */}
             <thead>
               <tr>
                 <th className="w-20 p-2 text-xs text-gray-500 font-normal text-left" />
@@ -90,16 +110,24 @@ export function WeekView() {
                     const key = `${format(day, 'yyyy-MM-dd')}:${slot}`;
                     const cellTasks = scheduledTasks[key] ?? [];
                     return (
-                      <td key={di} className="p-1.5 border-l border-white/5 align-top min-h-[80px] h-24">
+                      <td
+                        key={di}
+                        className={`p-1.5 border-l border-white/5 align-top min-h-[80px] h-24 ${
+                          selectedTaskId ? 'cursor-pointer hover:bg-indigo-600/10' : ''
+                        }`}
+                        onClick={() => handleCellClick(day, slot)}
+                      >
                         <div className="space-y-1">
                           {cellTasks.map((task) => (
                             <div
                               key={task.id}
-                              className="p-1.5 rounded-md text-[11px] leading-tight"
+                              className="p-1.5 rounded-md text-[11px] leading-tight cursor-pointer hover:opacity-80"
                               style={{
                                 borderLeft: `3px solid ${PRIORITY_COLORS[task.priority]}`,
                                 backgroundColor: `${PRIORITY_COLORS[task.priority]}10`,
                               }}
+                              onClick={(e) => { e.stopPropagation(); handleUnschedule(task.id); }}
+                              title="Click to unschedule"
                             >
                               <p className="font-medium text-gray-200 truncate">{task.title}</p>
                               <div className="text-gray-500 mt-0.5 flex gap-1">
@@ -128,7 +156,12 @@ export function WeekView() {
             {unscheduled.map((task) => (
               <div
                 key={task.id}
-                className="p-2 rounded-lg bg-[#1e1e35] border border-white/5"
+                onClick={() => setSelectedTaskId(selectedTaskId === task.id ? null : task.id)}
+                className={`p-2 rounded-lg border cursor-pointer transition-colors ${
+                  selectedTaskId === task.id
+                    ? 'bg-indigo-600/20 border-indigo-500/30'
+                    : 'bg-[#1e1e35] border-white/5 hover:border-white/10'
+                }`}
                 style={{ borderLeftWidth: '3px', borderLeftColor: PRIORITY_COLORS[task.priority] }}
               >
                 <p className="text-xs font-medium text-gray-200">{task.title}</p>
@@ -137,6 +170,9 @@ export function WeekView() {
                 </p>
               </div>
             ))}
+            {unscheduled.length === 0 && (
+              <p className="text-xs text-gray-600 text-center py-4">All tasks scheduled!</p>
+            )}
           </div>
         </div>
       </div>

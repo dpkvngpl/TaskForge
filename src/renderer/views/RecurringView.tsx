@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { useTaskStore } from '@/stores/task-store';
+import { useViewStore } from '@/stores/view-store';
 import { PRIORITY_COLORS, PRIORITY_LABELS } from '@shared/constants';
 import { CategoryChip } from '@/components/CategoryChip';
+import { TaskForm } from '@/components/TaskForm';
 import { format, addDays, parseISO } from 'date-fns';
 import type { Task } from '@shared/types';
 
@@ -36,9 +38,14 @@ const dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 function RecurringTaskCard({ task }: { task: Task }) {
   const activeDays = getActiveDays(task.recurrence_rule);
   const isActive = task.status !== 'archived';
+  const { updateTask } = useTaskStore();
+
+  const handleToggle = async () => {
+    await updateTask(task.id, { status: isActive ? 'archived' : 'todo' });
+  };
 
   return (
-    <div className="p-4 rounded-xl bg-[#1e1e35] border border-white/5">
+    <div className={`p-4 rounded-xl bg-[#1e1e35] border border-white/5 ${!isActive ? 'opacity-50' : ''}`}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <h3 className="text-sm font-semibold text-gray-100">{task.title}</h3>
@@ -47,10 +54,14 @@ function RecurringTaskCard({ task }: { task: Task }) {
               <path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" />
             </svg>
             {describeRule(task.recurrence_rule)}
+            {!isActive && <span className="text-gray-600 ml-1">— paused</span>}
           </p>
         </div>
         {/* Toggle */}
-        <div className={`w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors ${isActive ? 'bg-indigo-600' : 'bg-gray-600'}`}>
+        <div
+          onClick={handleToggle}
+          className={`w-10 h-5 rounded-full flex items-center px-0.5 cursor-pointer transition-colors ${isActive ? 'bg-indigo-600' : 'bg-gray-600'}`}
+        >
           <div className={`w-4 h-4 rounded-full bg-white transition-transform ${isActive ? 'translate-x-5' : 'translate-x-0'}`} />
         </div>
       </div>
@@ -149,7 +160,10 @@ export function RecurringView() {
       {/* Header */}
       <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
         <span className="text-lg font-bold"><span className="text-indigo-400">Task</span><span className="text-white">Forge</span></span>
-        <button className="px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-500 flex items-center gap-1.5">
+        <button
+          onClick={() => useViewStore.getState().openTaskForm()}
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-500 flex items-center gap-1.5"
+        >
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14" /><path d="M5 12h14" /></svg>
           New recurring task
         </button>
@@ -199,6 +213,8 @@ export function RecurringView() {
       <div className="px-4 py-2 border-t border-white/5 text-xs text-gray-500">
         {activePaused.active} active rules · {activePaused.paused} paused
       </div>
+
+      <TaskForm />
     </div>
   );
 }

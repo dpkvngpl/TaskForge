@@ -3,6 +3,7 @@ import path from 'path';
 import { initDatabase, closeDatabase } from './database/index';
 import { registerTaskHandlers } from './ipc-handlers';
 import { BackupService } from './services/backup';
+import { startReminderService, stopReminderService } from './services/reminder';
 import { createTray } from './tray';
 
 let mainWindow: BrowserWindow | null = null;
@@ -88,6 +89,9 @@ async function bootstrap(): Promise<void> {
   // Create window and tray
   createWindow();
   createTray(mainWindow!, isDev, isQuitting, (val: boolean) => { isQuitting = val; });
+
+  // Start reminder service
+  startReminderService(mainWindow!);
 }
 
 // Single instance lock — prevent multiple instances
@@ -123,5 +127,6 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  stopReminderService();
   closeDatabase();
 });

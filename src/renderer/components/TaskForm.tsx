@@ -32,6 +32,7 @@ export function TaskForm() {
   const [tags, setTags] = useState<string[]>([]);
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledSlot, setScheduledSlot] = useState('');
+  const [recurrencePreset, setRecurrencePreset] = useState('');
   const [titleError, setTitleError] = useState(false);
 
   // Populate form when editing
@@ -48,6 +49,7 @@ export function TaskForm() {
       setTags([...editingTask.tags]);
       setScheduledDate(editingTask.scheduled_date ?? '');
       setScheduledSlot(editingTask.scheduled_slot ?? '');
+      setRecurrencePreset(editingTask.recurrence_rule ?? '');
     } else {
       setTitle('');
       setDescription('');
@@ -60,6 +62,7 @@ export function TaskForm() {
       setTags([]);
       setScheduledDate('');
       setScheduledSlot('');
+      setRecurrencePreset('');
     }
     setTitleError(false);
   }, [editingTask, isTaskFormOpen]);
@@ -82,6 +85,7 @@ export function TaskForm() {
       tags,
       scheduled_date: scheduledDate || null,
       scheduled_slot: scheduledSlot || null,
+      recurrence_rule: recurrencePreset || null,
     };
 
     if (isEditing && editingTaskId) {
@@ -271,6 +275,26 @@ export function TaskForm() {
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Recurrence */}
+          <div>
+            <Label>Recurrence</Label>
+            <select
+              value={recurrencePreset}
+              onChange={(e) => setRecurrencePreset(e.target.value)}
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+            >
+              <option value="">No recurrence</option>
+              <option value="FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR">Every weekday</option>
+              <option value="FREQ=DAILY">Every day</option>
+              <option value="FREQ=WEEKLY;BYDAY=MO">Every Monday</option>
+              <option value="FREQ=WEEKLY;BYDAY=MO,TH">Every Monday and Thursday</option>
+              <option value="FREQ=WEEKLY;BYDAY=WE">Every Wednesday</option>
+              <option value="FREQ=WEEKLY;BYDAY=FR">Every Friday</option>
+              <option value="FREQ=WEEKLY">Weekly</option>
+              <option value="FREQ=MONTHLY">Monthly</option>
+            </select>
           </div>
         </div>
 

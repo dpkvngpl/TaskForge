@@ -1,5 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useTaskStore } from '@/stores/task-store';
+import { useViewStore } from '@/stores/view-store';
+import { TaskDetailPanel } from '@/components/TaskDetailPanel';
+import { TaskForm } from '@/components/TaskForm';
 import { PRIORITY_COLORS } from '@shared/constants';
 import { format, addDays, startOfWeek, differenceInDays, parseISO, isSameDay, isWithinInterval } from 'date-fns';
 import type { Task } from '@shared/types';
@@ -102,7 +105,7 @@ export function TimelineView() {
             const barProps = getBarProps(task);
             const catShort = task.category ? task.category.slice(0, 4) : '';
             return (
-              <div key={task.id} className="flex items-center border-b border-white/5 hover:bg-white/[0.02]">
+              <div key={task.id} className="flex items-center border-b border-white/5 hover:bg-white/[0.02] cursor-pointer" onClick={() => useViewStore.getState().openTaskDetail(task.id)}>
                 {/* Task label */}
                 <div className="w-64 shrink-0 px-3 py-3 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PRIORITY_COLORS[task.priority] }} />
@@ -141,6 +144,9 @@ export function TimelineView() {
           <span className="flex items-center gap-1.5"><span className="w-3 h-2 rounded-sm bg-blue-500" /> Low</span>
         </div>
       </div>
+
+      <TaskDetailPanel />
+      <TaskForm />
     </div>
   );
 }
