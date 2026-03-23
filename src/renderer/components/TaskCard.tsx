@@ -1,7 +1,6 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { PriorityBadge } from './PriorityBadge';
 import { DueDateChip } from './DueDateChip';
 import { CategoryChip } from './CategoryChip';
 import { useViewStore } from '@/stores/view-store';
@@ -35,57 +34,46 @@ export function TaskCard({ task, isDragOverlay = false }: TaskCardProps) {
     : {
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.4 : 1,
+        opacity: isDragging ? 0.3 : 1,
       };
 
   const handleClick = (e: React.MouseEvent) => {
     if (e.detail === 2) {
-      // Double click → edit
       openTaskForm(task.id);
     } else if (e.detail === 1) {
-      // Single click → detail panel
       openTaskDetail(task.id);
     }
   };
 
+  const borderColor = PRIORITY_COLORS[task.priority];
+
   return (
     <div
       ref={isDragOverlay ? undefined : setNodeRef}
-      style={style}
-      {...(isDragOverlay ? {} : attributes)}
-      {...(isDragOverlay ? {} : listeners)}
-      onClick={handleClick}
-      className={`group relative px-3 py-2 rounded-md bg-card border border-border cursor-grab active:cursor-grabbing
-        hover:bg-accent/30 hover:shadow-sm transition-all
-        ${isDone ? 'opacity-60' : ''}
-        ${isDragging ? 'shadow-lg' : ''}`}
       style={{
         ...style,
         borderLeftWidth: '3px',
-        borderLeftColor: PRIORITY_COLORS[task.priority],
+        borderLeftColor: borderColor,
       }}
+      {...(isDragOverlay ? {} : attributes)}
+      {...(isDragOverlay ? {} : listeners)}
+      onClick={handleClick}
+      className={`group relative px-3 py-2.5 rounded-lg bg-[#1e1e35] border border-white/5 cursor-grab active:cursor-grabbing
+        hover:bg-[#252545] hover:border-white/10 transition-all
+        ${isDone ? 'opacity-50' : ''}
+        ${isDragging ? 'shadow-xl shadow-black/30' : ''}`}
     >
-      {/* First line: priority dot + title */}
-      <div className="flex items-center gap-2 min-w-0">
-        <PriorityBadge priority={task.priority} />
-        <span className={`text-sm truncate ${isDone ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
-          {task.title}
-        </span>
-        {task.source_connector && task.source_connector !== 'manual' && (
-          <span className="text-xs text-muted-foreground shrink-0" title={`Source: ${task.source_connector}`}>
-            &#x1f517;
-          </span>
-        )}
-      </div>
+      {/* Title */}
+      <p className={`text-sm font-medium leading-snug ${isDone ? 'line-through text-gray-500' : 'text-gray-100'}`}>
+        {task.title}
+      </p>
 
-      {/* Second line: due date + category + tags */}
-      <div className="flex items-center gap-2 mt-1 min-w-0">
+      {/* Meta row: due date + category + tags */}
+      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
         <DueDateChip dueDate={task.due_date} dueTime={task.due_time} />
         <CategoryChip category={task.category} />
         {task.tags.slice(0, 2).map((tag) => (
-          <span key={tag} className="text-[10px] px-1 py-0 rounded bg-muted text-muted-foreground">
-            {tag}
-          </span>
+          <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-gray-400">{tag}</span>
         ))}
       </div>
     </div>
