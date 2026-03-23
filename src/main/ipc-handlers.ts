@@ -3,6 +3,8 @@ import { getAllTasks, getTaskById, createTask, updateTask, deleteTask, reorderTa
 import { getSetting, setSetting, getAllSettings } from './database/settings';
 import { getRecentActivity, undoLastAction } from './database/activity-log';
 import { checkOverdueOnStartup } from './services/notification';
+import { processRecurrences, buildRRule, describeRRule } from './services/recurrence';
+import { RRule } from 'rrule';
 import { IPC } from '../shared/ipc-channels';
 
 export function registerTaskHandlers(): void {
@@ -60,5 +62,28 @@ export function registerTaskHandlers(): void {
   // ---- Notifications ----
   ipcMain.handle(IPC.NOTIFICATIONS_GET_OVERDUE_COUNT, () => {
     return checkOverdueOnStartup();
+  });
+
+  // ---- Recurrence ----
+  ipcMain.handle(IPC.RECURRENCE_PROCESS, () => {
+    return processRecurrences();
+  });
+
+  ipcMain.handle(IPC.RECURRENCE_BUILD_RRULE, (_event, options) => {
+    return buildRRule(options);
+  });
+
+  ipcMain.handle(IPC.RECURRENCE_DESCRIBE, (_event, ruleStr: string) => {
+    return describeRRule(ruleStr);
+  });
+
+  ipcMain.handle(IPC.RECURRENCE_GET_NEXT_DATES, (_event, ruleStr: string, count: number = 5) => {
+    try {
+      const rule = RRule.fromString(ruleStr);
+      const dates = rule.all((_, i) => i < count);
+      return dates.map(d => d.toISOString().split('T')[0]);
+    } catch {
+      return [];
+    }
   });
 }

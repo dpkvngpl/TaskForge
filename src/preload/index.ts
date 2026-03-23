@@ -48,6 +48,17 @@ const api = {
     quit: () => ipcRenderer.send('app:quit'),
   },
 
+  recurrence: {
+    process: () => ipcRenderer.invoke('recurrence:process'),
+    buildRRule: (options: Record<string, unknown>) => ipcRenderer.invoke('recurrence:buildRRule', options),
+    describe: (ruleStr: string) => ipcRenderer.invoke('recurrence:describe', ruleStr),
+    getNextDates: (ruleStr: string, count?: number) => ipcRenderer.invoke('recurrence:getNextDates', ruleStr, count),
+  },
+
+  notifications: {
+    getOverdueCount: () => ipcRenderer.invoke('notifications:getOverdueCount'),
+  },
+
   // Event listeners (main → renderer)
   on: {
     quickAdd: (callback: () => void) => {

@@ -4,6 +4,7 @@ import { initDatabase, closeDatabase } from './database/index';
 import { registerTaskHandlers } from './ipc-handlers';
 import { BackupService } from './services/backup';
 import { startNotificationService, stopNotificationService, checkOverdueOnStartup } from './services/notification';
+import { startRecurrenceService, stopRecurrenceService } from './services/recurrence';
 import { createTray } from './tray';
 
 let mainWindow: BrowserWindow | null = null;
@@ -93,6 +94,9 @@ async function bootstrap(): Promise<void> {
   // Start notification service
   startNotificationService(mainWindow!);
 
+  // Start recurrence service
+  startRecurrenceService();
+
   // Check overdue tasks on startup
   const overdueCount = checkOverdueOnStartup();
   if (overdueCount > 0) {
@@ -138,5 +142,6 @@ app.on('activate', () => {
 app.on('before-quit', () => {
   isQuitting = true;
   stopNotificationService();
+  stopRecurrenceService();
   closeDatabase();
 });
