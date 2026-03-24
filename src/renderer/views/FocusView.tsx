@@ -1,104 +1,89 @@
 import React, { useMemo } from 'react';
 import { useTaskStore } from '@/stores/task-store';
-import { PriorityBadge } from '@/components/PriorityBadge';
-import { DueDateChip } from '@/components/DueDateChip';
-import { CategoryChip } from '@/components/CategoryChip';
-import { PRIORITY_COLORS } from '@shared/constants';
-import { format, parseISO, isToday, isPast } from 'date-fns';
-import type { Task } from '@shared/types';
-
-function FocusTaskCard({ task, onStart }: { task: Task; onStart: () => void }) {
-  return (
-    <div
-      className="flex items-start gap-4 p-4 rounded-xl bg-[#1e1e35] border border-white/5 hover:border-white/10 transition-colors"
-      style={{ borderLeftWidth: '3px', borderLeftColor: PRIORITY_COLORS[task.priority] }}
-    >
-      {/* Priority ring */}
-      <div className="mt-0.5">
-        <div className="w-5 h-5 rounded-full border-2" style={{ borderColor: PRIORITY_COLORS[task.priority] }} />
-      </div>
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <h3 className="text-sm font-semibold text-gray-100">{task.title}</h3>
-        {task.description && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{task.description}</p>}
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
-          <DueDateChip dueDate={task.due_date} dueTime={task.due_time} />
-          <CategoryChip category={task.category} />
-          {task.estimated_mins && (
-            <span className="text-[10px] text-gray-500 flex items-center gap-1">
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-              {task.estimated_mins >= 60 ? `${Math.floor(task.estimated_mins / 60)}h` : `${task.estimated_mins}m`}
-            </span>
-          )}
-        </div>
-      </div>
-      {/* Start button */}
-      <button
-        onClick={onStart}
-        className="px-4 py-2 rounded-lg border border-white/10 text-sm font-medium text-gray-200 hover:bg-white/5 transition-colors shrink-0"
-      >
-        Start now
-      </button>
-    </div>
-  );
-}
+import { useViewStore } from '@/stores/view-store';
+import { FocusTaskCard } from '@/components/FocusTaskCard';
+import { CompletedRow } from '@/components/CompletedRow';
+import { TaskDetailPanel } from '@/components/TaskDetailPanel';
+import { TaskForm } from '@/components/TaskForm';
+import { format, parseISO, isToday, isPast, addDays, isWithinInterval } from 'date-fns';
 
 export function FocusView() {
   const { tasks, updateTask } = useTaskStore();
+  const { openTaskDetail } = useViewStore();
 
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
   const overdueTasks = useMemo(
-    () => tasks.filter((t) => t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date)) && t.status !== 'done' && t.status !== 'archived'),
+    () => tasks
+      .filter((t) => t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date)) && t.status !== 'done' && t.status !== 'archived')
+      .sort((a, b) => b.priority - a.priority),
     [tasks]
   );
 
   const dueTodayTasks = useMemo(
-    () => tasks.filter((t) => t.due_date && isToday(parseISO(t.due_date)) && t.status !== 'done' && t.status !== 'archived'),
+    () => tasks
+      .filter((t) => t.due_date && isToday(parseISO(t.due_date)) && t.status !== 'done' && t.status !== 'archived')
+      .sort((a, b) => b.priority - a.priority),
     [tasks]
   );
+
+  const upcomingTasks = useMemo(() => {
+    if (overdueTasks.length + dueTodayTasks.length >= 5) return [];
+    const tomorrow = addDays(now, 1);
+    const weekEnd = addDays(now, 7);
+    return tasks
+      .filter((t) => t.due_date && t.status !== 'done' && t.status !== 'archived' &&
+        isWithinInterval(parseISO(t.due_date), { start: tomorrow, end: weekEnd }))
+      .sort((a, b) => a.due_date!.localeCompare(b.due_date!));
+  }, [tasks, overdueTasks.length, dueTodayTasks.length]);
 
   const completedToday = useMemo(
     () => tasks.filter((t) => t.completed_at && isToday(parseISO(t.completed_at))),
     [tasks]
   );
 
+  const handleComplete = async (id: string) => {
+    await updateTask(id, { status: 'done' });
+  };
+
   const handleStart = async (id: string) => {
     await updateTask(id, { status: 'in_progress' });
   };
 
+  const focusCount = overdueTasks.length + dueTodayTasks.length;
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
-        <span className="text-lg font-bold"><span className="text-indigo-400">Task</span><span className="text-white">Forge</span></span>
-        <span className="text-sm text-gray-400">{format(now, 'EEEE, d MMMM yyyy')}</span>
+      <div className="px-4 py-3 flex items-center justify-between border-b border-[rgba(255,255,255,0.06)]">
+        <span className="text-lg font-bold"><span className="text-[#6366f1]">Task</span><span className="text-[#e2e2e6]">Forge</span></span>
+        <span className="text-sm text-[#a5a5af]">{format(now, 'EEEE, d MMMM yyyy')}</span>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-6 py-8">
+        <div className="max-w-[700px] mx-auto px-6 py-8">
           {/* Greeting */}
-          <h1 className="text-3xl font-bold text-gray-100">{greeting}, Deepak</h1>
-          <p className="text-gray-400 mt-1">
-            You have {overdueTasks.length + dueTodayTasks.length} tasks to focus on today
-            {overdueTasks.length > 0 && `, ${overdueTasks.length} are overdue`}.
+          <h1 className="text-3xl font-bold text-[#e2e2e6]">{greeting}, Deepak</h1>
+          <p className="text-[#a5a5af] mt-1">
+            You have {focusCount} task{focusCount !== 1 ? 's' : ''} to focus on today
+            {overdueTasks.length > 0 ? `, ${overdueTasks.length} ${overdueTasks.length === 1 ? 'is' : 'are'} overdue` : ''}.
           </p>
 
-          {/* Stats cards */}
+          {/* Summary cards */}
           <div className="grid grid-cols-3 gap-4 mt-6">
-            <div className="p-4 rounded-xl bg-[#1e1e35] border border-white/5">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Overdue</p>
-              <p className="text-3xl font-bold text-red-400 mt-1">{overdueTasks.length}</p>
+            <div className="p-4 rounded-[8px] bg-[#12141b] border border-[rgba(255,255,255,0.06)]">
+              <p className="text-xs text-[#6b7280] uppercase tracking-wider">Overdue</p>
+              <p className="text-3xl font-bold text-[#ef4444] mt-1">{overdueTasks.length}</p>
             </div>
-            <div className="p-4 rounded-xl bg-[#1e1e35] border border-white/5">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Due today</p>
-              <p className="text-3xl font-bold text-amber-400 mt-1">{dueTodayTasks.length}</p>
+            <div className="p-4 rounded-[8px] bg-[#12141b] border border-[rgba(255,255,255,0.06)]">
+              <p className="text-xs text-[#6b7280] uppercase tracking-wider">Due today</p>
+              <p className="text-3xl font-bold text-[#f59e0b] mt-1">{dueTodayTasks.length}</p>
             </div>
-            <div className="p-4 rounded-xl bg-[#1e1e35] border border-white/5">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Completed today</p>
-              <p className="text-3xl font-bold text-green-400 mt-1">{completedToday.length}</p>
+            <div className="p-4 rounded-[8px] bg-[#12141b] border border-[rgba(255,255,255,0.06)]">
+              <p className="text-xs text-[#6b7280] uppercase tracking-wider">Completed today</p>
+              <p className="text-3xl font-bold text-[#22c55e] mt-1">{completedToday.length}</p>
             </div>
           </div>
 
@@ -106,13 +91,19 @@ export function FocusView() {
           {overdueTasks.length > 0 && (
             <div className="mt-8">
               <div className="flex items-center gap-2 mb-4">
-                <span className="w-2 h-2 rounded-full bg-red-500" />
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Overdue</h2>
-                <span className="text-xs text-gray-500">{overdueTasks.length} tasks</span>
+                <span className="w-2 h-2 rounded-full bg-[#ef4444]" />
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-[#a5a5af]">Overdue</h2>
+                <span className="text-xs text-[#6b7280]">{overdueTasks.length} task{overdueTasks.length !== 1 ? 's' : ''}</span>
               </div>
               <div className="space-y-3">
                 {overdueTasks.map((task) => (
-                  <FocusTaskCard key={task.id} task={task} onStart={() => handleStart(task.id)} />
+                  <FocusTaskCard
+                    key={task.id}
+                    task={task}
+                    onComplete={() => handleComplete(task.id)}
+                    onStart={() => handleStart(task.id)}
+                    onClick={() => openTaskDetail(task.id)}
+                  />
                 ))}
               </div>
             </div>
@@ -122,26 +113,71 @@ export function FocusView() {
           {dueTodayTasks.length > 0 && (
             <div className="mt-8">
               <div className="flex items-center gap-2 mb-4">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Due today</h2>
-                <span className="text-xs text-gray-500">{dueTodayTasks.length} tasks</span>
+                <span className="w-2 h-2 rounded-full bg-[#f59e0b]" />
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-[#a5a5af]">Due today</h2>
+                <span className="text-xs text-[#6b7280]">{dueTodayTasks.length} task{dueTodayTasks.length !== 1 ? 's' : ''}</span>
               </div>
               <div className="space-y-3">
                 {dueTodayTasks.map((task) => (
-                  <FocusTaskCard key={task.id} task={task} onStart={() => handleStart(task.id)} />
+                  <FocusTaskCard
+                    key={task.id}
+                    task={task}
+                    onComplete={() => handleComplete(task.id)}
+                    onStart={() => handleStart(task.id)}
+                    onClick={() => openTaskDetail(task.id)}
+                  />
                 ))}
               </div>
             </div>
           )}
 
-          {overdueTasks.length === 0 && dueTodayTasks.length === 0 && (
-            <div className="mt-12 text-center text-gray-500">
+          {/* Upcoming this week (only if overdue+today < 5) */}
+          {upcomingTasks.length > 0 && (
+            <div className="mt-8">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-2 h-2 rounded-full bg-[#6b7280]" />
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-[#a5a5af]">Upcoming this week</h2>
+              </div>
+              <div className="space-y-3">
+                {upcomingTasks.map((task) => (
+                  <FocusTaskCard
+                    key={task.id}
+                    task={task}
+                    onComplete={() => handleComplete(task.id)}
+                    onStart={() => handleStart(task.id)}
+                    onClick={() => openTaskDetail(task.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Completed today */}
+          {completedToday.length > 0 && (
+            <div className="mt-8">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-2 h-2 rounded-full bg-[#22c55e]" />
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-[#a5a5af]">Completed today</h2>
+              </div>
+              <div className="space-y-2">
+                {completedToday.map((task) => (
+                  <CompletedRow key={task.id} task={task} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {focusCount === 0 && completedToday.length === 0 && (
+            <div className="mt-12 text-center text-[#6b7280]">
               <p className="text-lg">All clear for today!</p>
               <p className="text-sm mt-1">No overdue or due tasks. Great work.</p>
             </div>
           )}
         </div>
       </div>
+
+      <TaskDetailPanel />
+      <TaskForm />
     </div>
   );
 }
