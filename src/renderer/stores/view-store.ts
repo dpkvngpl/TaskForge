@@ -19,7 +19,7 @@ interface ViewState {
 }
 
 export const useViewStore = create<ViewState>((set) => ({
-  currentView: 'kanban',
+  currentView: 'focus',
   sidebarCollapsed: false,
   selectedTaskId: null,
   isTaskDetailOpen: false,

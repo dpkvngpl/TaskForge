@@ -164,7 +164,8 @@ export function RecurrenceView() {
     } else {
       // Create new template + create first task instance immediately
       const tmpl = await window.taskforge.templates.create(data);
-      // Also create an actual task so it shows in Kanban/Week/Focus
+      // Also create an actual task so it shows in Kanban/Week/Focus/Timeline
+      const today = new Date().toISOString().split('T')[0];
       await window.taskforge.tasks.create({
         title: data.name,
         description: (data.template_data.description as string) || null,
@@ -172,6 +173,8 @@ export function RecurrenceView() {
         category: (data.template_data.category as string) || null,
         estimated_mins: (data.template_data.estimated_mins as number) || null,
         scheduled_slot: (data.template_data.scheduled_slot as string) || null,
+        scheduled_date: today,
+        due_date: today,
         recurrence_rule: data.recurrence_rule,
         source_connector: 'template',
         source_id: tmpl.id,

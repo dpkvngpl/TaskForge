@@ -56,21 +56,35 @@
 
 @layer base {
   * {
-    border-color: rgba(255, 255, 255, 0.06);
+    border-color: rgba(0, 0, 0, 0.08);
   }
   body {
+    background-color: #f5f5f7;
+    color: #1a1a2e;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+  .dark * {
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+  .dark body {
     background-color: #0b0d12;
     color: #e2e2e6;
-    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   }
 }
 
-/* App shell */
-.app-bg { background: #0f1117; }
-.surface { background: #1a1d27; }
-.surface-elevated { background: #12141b; }
-.border-subtle { border-color: rgba(255, 255, 255, 0.06); }
-.border-hover { border-color: rgba(255, 255, 255, 0.12); }
+/* App shell — light theme */
+.app-bg { background: #f5f5f7; }
+.surface { background: #ffffff; }
+.surface-elevated { background: #f0f0f3; }
+.border-subtle { border-color: rgba(0, 0, 0, 0.08); }
+.border-hover { border-color: rgba(0, 0, 0, 0.15); }
+
+/* App shell — dark theme */
+.dark .app-bg { background: #0f1117; }
+.dark .surface { background: #1a1d27; }
+.dark .surface-elevated { background: #12141b; }
+.dark .border-subtle { border-color: rgba(255, 255, 255, 0.06); }
+.dark .border-hover { border-color: rgba(255, 255, 255, 0.12); }
 
 /* Priority colours */
 .priority-high { border-left-color: #ef4444; }
@@ -91,8 +105,10 @@
 /* Scrollbar styling */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
+.dark ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); }
+.dark ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
 
 /* Today column highlight */
 .today-highlight { background: rgba(99, 102, 241, 0.03); }
@@ -109,20 +125,28 @@
 /* Form inputs */
 .form-input {
   width: 100%;
-  background: #12141b;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #f0f0f3;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   padding: 8px 12px;
-  color: #e2e2e6;
+  color: #1a1a2e;
   font-size: 13px;
   font-family: inherit;
   outline: none;
   transition: border-color 150ms;
 }
+.dark .form-input {
+  background: #12141b;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #e2e2e6;
+}
 .form-input:focus {
   border-color: rgba(99, 102, 241, 0.5);
 }
 .form-input::placeholder {
+  color: #999;
+}
+.dark .form-input::placeholder {
   color: #4b4b55;
 }
 select.form-input {
@@ -138,14 +162,17 @@ textarea.form-input {
   line-height: 1.5;
 }
 
-/* Date & time inputs — dark theme styling */
+/* Date & time inputs */
 input[type="date"].form-input,
 input[type="time"].form-input {
-  color-scheme: dark;
   cursor: pointer;
 }
-input[type="date"].form-input::-webkit-calendar-picker-indicator,
-input[type="time"].form-input::-webkit-calendar-picker-indicator {
+.dark input[type="date"].form-input,
+.dark input[type="time"].form-input {
+  color-scheme: dark;
+}
+.dark input[type="date"].form-input::-webkit-calendar-picker-indicator,
+.dark input[type="time"].form-input::-webkit-calendar-picker-indicator {
   filter: invert(0.6);
   cursor: pointer;
 }

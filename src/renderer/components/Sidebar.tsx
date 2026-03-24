@@ -5,6 +5,16 @@ import type { ViewType } from '@shared/types';
 
 const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   {
+    id: 'focus',
+    label: 'Focus',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    ),
+  },
+  {
     id: 'kanban',
     label: 'Kanban',
     icon: (
@@ -32,16 +42,6 @@ const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
         <path d="M4 6h16M4 12h10M4 18h14" />
-      </svg>
-    ),
-  },
-  {
-    id: 'focus',
-    label: 'Focus',
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
-        <circle cx="12" cy="12" r="10" />
-        <circle cx="12" cy="12" r="3" />
       </svg>
     ),
   },

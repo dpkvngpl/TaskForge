@@ -37,6 +37,7 @@ export function RecurrenceEditDialog({ open, onClose, onSave, editingTemplate }:
   const [estimatedMins, setEstimatedMins] = useState('');
   const [selectedPreset, setSelectedPreset] = useState('');
   const [customDays, setCustomDays] = useState<number[]>([]);
+  const [monthDay, setMonthDay] = useState(1);
   const [nameError, setNameError] = useState(false);
 
   // Populate when editing
@@ -73,10 +74,26 @@ export function RecurrenceEditDialog({ open, onClose, onSave, editingTemplate }:
     if (!name.trim()) { setNameError(true); return; }
 
     let rule = selectedPreset;
+
+    // For Weekly/Fortnightly — append selected days
+    if ((selectedPreset.includes('WEEKLY')) && customDays.length > 0) {
+      // Strip any existing BYDAY from preset, then add selected days
+      const base = selectedPreset.replace(/;?BYDAY=[A-Z,]+/, '');
+      const dayStr = [...customDays].sort().map((d) => DAY_CODES[d]).join(',');
+      rule = `${base};BYDAY=${dayStr}`;
+    }
+
+    // For Custom — build from scratch
     if (selectedPreset === 'custom' && customDays.length > 0) {
-      const dayStr = customDays.sort().map((d) => DAY_CODES[d]).join(',');
+      const dayStr = [...customDays].sort().map((d) => DAY_CODES[d]).join(',');
       rule = `FREQ=WEEKLY;BYDAY=${dayStr}`;
     }
+
+    // For Monthly — add day of month
+    if (selectedPreset === 'FREQ=MONTHLY') {
+      rule = `FREQ=MONTHLY;BYMONTHDAY=${monthDay}`;
+    }
+
     if (!rule) rule = 'FREQ=WEEKLY';
 
     onSave({
@@ -171,20 +188,13 @@ export function RecurrenceEditDialog({ open, onClose, onSave, editingTemplate }:
                     }`}
                   >{preset.label}</button>
                 ))}
-                <button type="button" onClick={() => setSelectedPreset('custom')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
-                    selectedPreset === 'custom'
-                      ? 'bg-indigo-500 text-white border-indigo-500'
-                      : 'bg-[#12141b] border-white/[0.06] text-zinc-500 hover:border-white/[0.1]'
-                  }`}
-                >Custom</button>
               </div>
             </div>
 
-            {/* Custom day picker */}
-            {(selectedPreset === 'custom' || selectedPreset.includes('WEEKLY')) && (
+            {/* Day-of-week picker — shown for Weekly, Fortnightly, and Custom */}
+            {(selectedPreset.includes('WEEKLY') || selectedPreset === 'custom') && (
               <div>
-                <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Days of week</label>
+                <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Repeat on</label>
                 <div className="flex gap-1.5">
                   {DAY_LABELS.map((label, i) => (
                     <button key={i} type="button" onClick={() => toggleDay(i)}
@@ -195,6 +205,25 @@ export function RecurrenceEditDialog({ open, onClose, onSave, editingTemplate }:
                       }`}
                     >{label}</button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Day-of-month picker — shown for Monthly */}
+            {selectedPreset === 'FREQ=MONTHLY' && (
+              <div>
+                <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Day of month</label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={monthDay}
+                    onChange={(e) => setMonthDay(parseInt(e.target.value))}
+                    className="form-input w-[80px]"
+                  >
+                    {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={d}>{d}{d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'}</option>
+                    ))}
+                  </select>
+                  <span className="text-[12px] text-zinc-500">of every month</span>
                 </div>
               </div>
             )}

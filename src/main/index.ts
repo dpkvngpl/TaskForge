@@ -38,7 +38,9 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     title: 'TaskForge',
-    icon: path.join(__dirname, '../../resources/icon.png'),
+    icon: isDev
+      ? path.join(process.cwd(), 'resources', 'icon.png')
+      : path.join(process.resourcesPath, 'resources', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, '../../dist-preload/index.js'),
       contextIsolation: true,

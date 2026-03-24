@@ -9,11 +9,9 @@ export function createTray(
   _isQuitting: boolean,
   setQuitting: (val: boolean) => void
 ): void {
-  const iconPath = path.join(
-    isDev ? process.cwd() : path.dirname(app.getPath('exe')),
-    'resources',
-    'tray-icon.png'
-  );
+  const iconPath = isDev
+    ? path.join(process.cwd(), 'resources', 'tray-icon.png')
+    : path.join(process.resourcesPath, 'resources', 'tray-icon.png');
 
   // Create a simple tray icon — if the icon file doesn't exist yet,
   // create a 16x16 placeholder
