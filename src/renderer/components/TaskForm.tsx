@@ -277,24 +277,31 @@ export function TaskForm() {
             </div>
           </div>
 
-          {/* Recurrence */}
+          {/* Recurrence (Repeat) */}
           <div>
-            <Label>Recurrence</Label>
-            <select
-              value={recurrencePreset}
-              onChange={(e) => setRecurrencePreset(e.target.value)}
-              className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-            >
-              <option value="">No recurrence</option>
-              <option value="FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR">Every weekday</option>
-              <option value="FREQ=DAILY">Every day</option>
-              <option value="FREQ=WEEKLY;BYDAY=MO">Every Monday</option>
-              <option value="FREQ=WEEKLY;BYDAY=MO,TH">Every Monday and Thursday</option>
-              <option value="FREQ=WEEKLY;BYDAY=WE">Every Wednesday</option>
-              <option value="FREQ=WEEKLY;BYDAY=FR">Every Friday</option>
-              <option value="FREQ=WEEKLY">Weekly</option>
-              <option value="FREQ=MONTHLY">Monthly</option>
-            </select>
+            <Label>Repeat</Label>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {[
+                { label: 'None', value: '' },
+                { label: 'Daily', value: 'FREQ=DAILY' },
+                { label: 'Weekdays', value: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' },
+                { label: 'Weekly', value: 'FREQ=WEEKLY' },
+                { label: 'Monthly', value: 'FREQ=MONTHLY' },
+              ].map((preset) => (
+                <button
+                  key={preset.value}
+                  type="button"
+                  onClick={() => setRecurrencePreset(preset.value)}
+                  className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
+                    recurrencePreset === preset.value
+                      ? 'bg-accent text-accent-foreground border-accent'
+                      : 'border-input text-muted-foreground hover:bg-accent/50'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

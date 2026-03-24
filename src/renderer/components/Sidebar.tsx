@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useViewStore } from '@/stores/view-store';
+import { useTaskStore } from '@/stores/task-store';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { parseISO, isPast, isToday } from 'date-fns';
 import type { ViewType } from '@shared/types';
 
 interface NavItem {
@@ -68,6 +70,19 @@ const settingsIcon = (
 
 export function Sidebar() {
   const { currentView, setView } = useViewStore();
+  const tasks = useTaskStore((s) => s.tasks);
+
+  const badges = useMemo(() => {
+    const overdue = tasks.filter((t) => t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date)) && t.status !== 'done' && t.status !== 'archived').length;
+    const unscheduled = tasks.filter((t) => (!t.scheduled_date || !t.scheduled_slot) && t.status !== 'done' && t.status !== 'archived').length;
+    return { focus: overdue, week: unscheduled > 0 ? unscheduled : 0 };
+  }, [tasks]);
+
+  const getBadge = (id: ViewType): number | null => {
+    if (id === 'focus' && badges.focus > 0) return badges.focus;
+    if (id === 'week' && badges.week > 0) return badges.week;
+    return null;
+  };
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -76,21 +91,27 @@ export function Sidebar() {
         <nav className="flex flex-col items-center gap-1 flex-1">
           {navItems.map((item) => {
             const isActive = currentView === item.id;
+            const badge = getBadge(item.id);
             return (
               <Tooltip key={item.id}>
                 <TooltipTrigger asChild>
                   <button
                     onClick={() => setView(item.id)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
+                    className={`relative w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
                       isActive
                         ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
                         : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
                     }`}
                   >
                     {item.icon}
+                    {badge !== null && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
+                        {badge}
+                      </span>
+                    )}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">{item.label}</TooltipContent>
+                <TooltipContent side="right" className="text-xs">{item.label}{badge ? ` (${badge})` : ''}</TooltipContent>
               </Tooltip>
             );
           })}

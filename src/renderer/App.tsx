@@ -38,15 +38,26 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const viewMap: Record<string, 'kanban' | 'week' | 'timeline' | 'focus' | 'recurrence'> = {
+      '1': 'kanban', '2': 'week', '3': 'timeline', '4': 'focus', '5': 'recurrence',
+    };
     const handler = (e: KeyboardEvent) => {
+      // Ctrl+N → Quick Add
       if (e.ctrlKey && e.key === 'n') {
         e.preventDefault();
         window.dispatchEvent(new CustomEvent('taskforge:quick-add'));
       }
+      // Ctrl+Z → Undo
       if (e.ctrlKey && e.key === 'z') {
         e.preventDefault();
         useTaskStore.getState().undo();
       }
+      // Ctrl+1-5 → Switch views
+      if (e.ctrlKey && viewMap[e.key]) {
+        e.preventDefault();
+        useViewStore.getState().setView(viewMap[e.key]);
+      }
+      // 1-4 → Set priority on selected task (only when not in input)
       if (['1', '2', '3', '4'].includes(e.key) && !e.ctrlKey && !isInputFocused()) {
         const priority = parseInt(e.key) - 1;
         const selectedId = useViewStore.getState().selectedTaskId;
