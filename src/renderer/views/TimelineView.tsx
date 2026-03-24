@@ -3,6 +3,7 @@ import { useTaskStore } from '@/stores/task-store';
 import { useViewStore } from '@/stores/view-store';
 import { TaskDetailPanel } from '@/components/TaskDetailPanel';
 import { PriorityBadge } from '@/components/PriorityBadge';
+import { expandRecurringTasks } from '@/lib/recurrence-utils';
 import { PRIORITY_COLORS } from '@shared/constants';
 import { format, addDays, startOfWeek, isToday, differenceInDays, isWeekend } from 'date-fns';
 import type { Task } from '@shared/types';
@@ -22,9 +23,13 @@ export function TimelineView() {
 
   const days = useMemo(() => Array.from({ length: dayCount }, (_, i) => addDays(weekStart, i)), [weekStart, dayCount]);
 
-  // Filter tasks that have a due_date or scheduled_date
+  // Filter tasks + projected recurring instances
   const timelineTasks = useMemo(() => {
-    return tasks
+    const startStr = format(days[0], 'yyyy-MM-dd');
+    const endStr = format(days[dayCount - 1], 'yyyy-MM-dd');
+    const projected = expandRecurringTasks(tasks, startStr, endStr);
+    const all = [...tasks, ...projected];
+    return all
       .filter((t) => (t.due_date || t.scheduled_date) && t.status !== 'archived')
       .sort((a, b) => {
         const aDate = a.scheduled_date || a.due_date || '';
@@ -32,8 +37,8 @@ export function TimelineView() {
         if (aDate !== bDate) return aDate.localeCompare(bDate);
         return b.priority - a.priority;
       })
-      .slice(0, 20); // Limit for display
-  }, [tasks]);
+      .slice(0, 30);
+  }, [tasks, days, dayCount]);
 
   const startDate = days[0];
 
@@ -149,15 +154,19 @@ export function TimelineView() {
                   {/* Task bar */}
                   {barPct && (
                     <div
-                      onClick={() => openTaskDetail(task.id)}
-                      className="absolute top-2 h-[22px] rounded cursor-pointer hover:opacity-80 transition-opacity flex items-center px-1.5 text-[10px] font-medium text-white overflow-hidden whitespace-nowrap"
+                      onClick={() => !task.id.startsWith('projected-') && openTaskDetail(task.id)}
+                      className={`absolute top-2 h-[22px] rounded cursor-pointer hover:opacity-80 transition-opacity flex items-center px-1.5 text-[10px] font-medium text-white overflow-hidden whitespace-nowrap ${
+                        task.source_connector === 'recurrence' ? 'border border-dashed border-violet-400/50' : ''
+                      }`}
                       style={{
                         left: barPct.left,
                         width: barPct.width,
                         minWidth: 24,
-                        backgroundColor: task.status === 'done'
-                          ? 'rgba(34,197,94,0.4)'
-                          : PRIORITY_COLORS[task.priority],
+                        backgroundColor: task.source_connector === 'recurrence'
+                          ? 'rgba(139,92,246,0.5)'
+                          : task.status === 'done'
+                            ? 'rgba(34,197,94,0.4)'
+                            : PRIORITY_COLORS[task.priority],
                         opacity: task.status === 'in_progress' ? 0.7 : 1,
                       }}
                     >
@@ -189,6 +198,10 @@ export function TimelineView() {
               <span className="text-zinc-500">{p === 3 ? 'High' : p === 2 ? 'Medium' : 'Low'}</span>
             </span>
           ))}
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-sm border border-dashed border-violet-400" style={{ backgroundColor: 'rgba(139,92,246,0.5)' }} />
+            <span className="text-zinc-500">Recurring</span>
+          </span>
         </div>
       </div>
 

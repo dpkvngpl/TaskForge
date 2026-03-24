@@ -5,21 +5,32 @@ import { TaskDetailPanel } from '@/components/TaskDetailPanel';
 import { TaskForm } from '@/components/TaskForm';
 import { PriorityBadge } from '@/components/PriorityBadge';
 import { CategoryChip } from '@/components/CategoryChip';
+import { expandRecurringTasks } from '@/lib/recurrence-utils';
 import { format, startOfWeek, addDays, isToday, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import type { Task } from '@shared/types';
 
 const SLOTS = ['morning', 'afternoon', 'evening'] as const;
 
 function WeekTaskBlock({ task, onClick }: { task: Task; onClick: () => void }) {
+  const isProjected = task.source_connector === 'recurrence';
   const borderMap = { 3: 'border-l-red-500', 2: 'border-l-amber-500', 1: 'border-l-blue-500', 0: 'border-l-zinc-600' } as const;
   const bgMap = { 3: 'bg-red-500/[0.06]', 2: 'bg-amber-500/[0.06]', 1: 'bg-blue-500/[0.06]', 0: 'bg-zinc-500/[0.06]' } as const;
 
   return (
     <div
       onClick={onClick}
-      className={`rounded-md px-1.5 py-1 border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${borderMap[task.priority]} ${bgMap[task.priority]}`}
+      className={`rounded-md px-1.5 py-1 border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${
+        isProjected ? 'border-l-violet-500 bg-violet-500/[0.06] border-dashed' : `${borderMap[task.priority]} ${bgMap[task.priority]}`
+      }`}
     >
-      <div className="text-[11px] font-medium text-zinc-200 leading-tight truncate">{task.title}</div>
+      <div className="flex items-center gap-1">
+        {isProjected && (
+          <svg className="w-3 h-3 text-violet-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M17 1l4 4-4 4" /><path d="M3 11V9a4 4 0 014-4h14" />
+          </svg>
+        )}
+        <div className="text-[11px] font-medium text-zinc-200 leading-tight truncate">{task.title}</div>
+      </div>
       <div className="flex items-center gap-1 mt-0.5">
         {task.estimated_mins && (
           <span className="text-[10px] text-zinc-500">~{task.estimated_mins >= 60 ? `${Math.floor(task.estimated_mins / 60)}h` : `${task.estimated_mins}m`}</span>
@@ -41,13 +52,15 @@ export function WeekView() {
 
   const weekEnd = days[6];
 
-  // Tasks scheduled this week
+  // Tasks scheduled this week + projected recurring instances
   const scheduledTasks = useMemo(() => {
     const start = format(days[0], 'yyyy-MM-dd');
     const end = format(days[6], 'yyyy-MM-dd');
-    return tasks.filter(
+    const real = tasks.filter(
       (t) => t.scheduled_date && t.scheduled_date >= start && t.scheduled_date <= end && t.status !== 'archived'
     );
+    const projected = expandRecurringTasks(tasks, start, end);
+    return [...real, ...projected];
   }, [tasks, days]);
 
   // Unscheduled tasks (have due date but no scheduled date)

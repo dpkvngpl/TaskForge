@@ -67,7 +67,6 @@ export function RecurrenceEditDialog({ open, onClose, onSave, editingTemplate }:
 
   const toggleDay = (day: number) => {
     setCustomDays((prev) => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]);
-    setSelectedPreset('custom');
   };
 
   const handleSave = () => {
@@ -75,18 +74,15 @@ export function RecurrenceEditDialog({ open, onClose, onSave, editingTemplate }:
 
     let rule = selectedPreset;
 
-    // For Weekly/Fortnightly — append selected days
-    if ((selectedPreset.includes('WEEKLY')) && customDays.length > 0) {
-      // Strip any existing BYDAY from preset, then add selected days
-      const base = selectedPreset.replace(/;?BYDAY=[A-Z,]+/, '');
+    // Daily and Weekdays are used as-is (no day picker)
+    // FREQ=DAILY → repeats every day
+    // FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR → repeats weekdays only
+
+    // For Weekly or Fortnightly — append user-selected days
+    if ((selectedPreset === 'FREQ=WEEKLY' || selectedPreset === 'FREQ=WEEKLY;INTERVAL=2') && customDays.length > 0) {
+      const base = selectedPreset === 'FREQ=WEEKLY;INTERVAL=2' ? 'FREQ=WEEKLY;INTERVAL=2' : 'FREQ=WEEKLY';
       const dayStr = [...customDays].sort().map((d) => DAY_CODES[d]).join(',');
       rule = `${base};BYDAY=${dayStr}`;
-    }
-
-    // For Custom — build from scratch
-    if (selectedPreset === 'custom' && customDays.length > 0) {
-      const dayStr = [...customDays].sort().map((d) => DAY_CODES[d]).join(',');
-      rule = `FREQ=WEEKLY;BYDAY=${dayStr}`;
     }
 
     // For Monthly — add day of month
@@ -191,8 +187,8 @@ export function RecurrenceEditDialog({ open, onClose, onSave, editingTemplate }:
               </div>
             </div>
 
-            {/* Day-of-week picker — shown for Weekly, Fortnightly, and Custom */}
-            {(selectedPreset.includes('WEEKLY') || selectedPreset === 'custom') && (
+            {/* Day-of-week picker — only for Weekly and Fortnightly (not Daily/Weekdays which are explicit) */}
+            {(selectedPreset === 'FREQ=WEEKLY' || selectedPreset === 'FREQ=WEEKLY;INTERVAL=2') && (
               <div>
                 <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Repeat on</label>
                 <div className="flex gap-1.5">
@@ -206,10 +202,13 @@ export function RecurrenceEditDialog({ open, onClose, onSave, editingTemplate }:
                     >{label}</button>
                   ))}
                 </div>
+                {customDays.length === 0 && (
+                  <p className="text-[10px] text-zinc-600 mt-1">Select at least one day</p>
+                )}
               </div>
             )}
 
-            {/* Day-of-month picker — shown for Monthly */}
+            {/* Day-of-month picker — shown for Monthly (1-31, shorter months use last day) */}
             {selectedPreset === 'FREQ=MONTHLY' && (
               <div>
                 <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Day of month</label>
@@ -219,12 +218,16 @@ export function RecurrenceEditDialog({ open, onClose, onSave, editingTemplate }:
                     onChange={(e) => setMonthDay(parseInt(e.target.value))}
                     className="form-input w-[80px]"
                   >
-                    {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                      <option key={d} value={d}>{d}{d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'}</option>
-                    ))}
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
+                      const suffix = d === 1 || d === 21 || d === 31 ? 'st' : d === 2 || d === 22 ? 'nd' : d === 3 || d === 23 ? 'rd' : 'th';
+                      return <option key={d} value={d}>{d}{suffix}</option>;
+                    })}
                   </select>
                   <span className="text-[12px] text-zinc-500">of every month</span>
                 </div>
+                {monthDay > 28 && (
+                  <p className="text-[10px] text-zinc-600 mt-1">For shorter months, repeats on the last day</p>
+                )}
               </div>
             )}
 
