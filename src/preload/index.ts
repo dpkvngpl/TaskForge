@@ -23,6 +23,8 @@ const api = {
     getAll: () => ipcRenderer.invoke('templates:getAll'),
     create: (template: Record<string, unknown>) =>
       ipcRenderer.invoke('templates:create', template),
+    update: (id: string, changes: Record<string, unknown>) =>
+      ipcRenderer.invoke('templates:update', id, changes),
     delete: (id: string) =>
       ipcRenderer.invoke('templates:delete', id),
     createTaskFromTemplate: (templateId: string) =>
