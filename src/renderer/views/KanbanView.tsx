@@ -21,7 +21,6 @@ import { useViewStore } from '@/stores/view-store';
 import { TaskCard } from '@/components/TaskCard';
 import { TaskDetailPanel } from '@/components/TaskDetailPanel';
 import { TaskForm } from '@/components/TaskForm';
-import { QuickAddBar } from '@/components/QuickAddBar';
 import { FilterBar } from '@/components/FilterBar';
 import { DEFAULT_KANBAN_COLUMNS } from '@shared/constants';
 import type { Task, TaskStatus } from '@shared/types';
@@ -193,24 +192,21 @@ export function KanbanView() {
   return (
     <div className="flex flex-col h-full">
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-5 py-2.5 border-b border-white/[0.04]">
-        <div className="text-[15px] font-medium text-zinc-200">
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-white/[0.04]">
+        <div className="text-[22px] font-semibold text-zinc-100">
           <span className="text-indigo-400">Task</span>Forge
         </div>
-        <div className="flex-1 max-w-[400px] ml-3">
-          <QuickAddBar />
-        </div>
         <div className="flex items-center gap-2 ml-auto">
+          {overdue > 0 && (
+            <span className="bg-red-500 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-full">
+              {overdue} overdue
+            </span>
+          )}
           <button className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 hover:bg-white/5 hover:text-zinc-400">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" />
             </svg>
           </button>
-          {overdue > 0 && (
-            <span className="bg-red-500 text-white text-[10px] font-medium px-1.5 py-px rounded-full -ml-4 relative -top-2">
-              {overdue}
-            </span>
-          )}
         </div>
       </div>
 

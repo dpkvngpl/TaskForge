@@ -100,8 +100,8 @@ export function TimelineView() {
           </div>
         </div>
 
-        {/* Gantt grid */}
-        <div className="flex-1 flex flex-col overflow-x-auto">
+        {/* Gantt grid — uses flex:1 columns to fill width */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Day headers */}
           <div className="flex border-b border-white/[0.04] flex-shrink-0">
             {days.map((day) => {
@@ -110,10 +110,9 @@ export function TimelineView() {
               return (
                 <div
                   key={day.toISOString()}
-                  className={`flex-shrink-0 text-center py-1.5 border-r border-white/[0.03] ${
+                  className={`flex-1 text-center py-1.5 border-r border-white/[0.03] ${
                     today ? 'bg-indigo-500/[0.06]' : ''
                   }`}
-                  style={{ width: cellW }}
                 >
                   <div className={`text-[10px] ${today ? 'text-indigo-300' : weekend ? 'text-zinc-700' : 'text-zinc-600'}`}>
                     {format(day, 'EEE')}
@@ -126,37 +125,43 @@ export function TimelineView() {
             })}
           </div>
 
-          {/* Gantt rows */}
+          {/* Gantt rows — bars use percentage positioning */}
           <div className="flex-1 overflow-y-auto relative">
             {timelineTasks.map((task) => {
               const bar = getBar(task);
+              // Convert pixel bar to percentage
+              const barPct = bar ? {
+                left: `${(bar.left / (dayCount * cellW)) * 100}%`,
+                width: `${(bar.width / (dayCount * cellW)) * 100}%`,
+              } : null;
+
               return (
                 <div key={task.id} className="flex h-[38px] border-b border-white/[0.03] relative">
                   {/* Background cells */}
                   {days.map((day) => (
                     <div
                       key={day.toISOString()}
-                      className={`flex-shrink-0 border-r border-white/[0.03] ${
+                      className={`flex-1 border-r border-white/[0.03] ${
                         isToday(day) ? 'bg-indigo-500/[0.03]' : isWeekend(day) ? 'bg-white/[0.008]' : ''
                       }`}
-                      style={{ width: cellW }}
                     />
                   ))}
                   {/* Task bar */}
-                  {bar && (
+                  {barPct && (
                     <div
                       onClick={() => openTaskDetail(task.id)}
                       className="absolute top-2 h-[22px] rounded cursor-pointer hover:opacity-80 transition-opacity flex items-center px-1.5 text-[10px] font-medium text-white overflow-hidden whitespace-nowrap"
                       style={{
-                        left: bar.left,
-                        width: bar.width,
+                        left: barPct.left,
+                        width: barPct.width,
+                        minWidth: 24,
                         backgroundColor: task.status === 'done'
                           ? 'rgba(34,197,94,0.4)'
                           : PRIORITY_COLORS[task.priority],
                         opacity: task.status === 'in_progress' ? 0.7 : 1,
                       }}
                     >
-                      {bar.width > 80 && task.title.slice(0, 20)}
+                      {task.title.slice(0, 25)}
                     </div>
                   )}
                 </div>
@@ -167,7 +172,7 @@ export function TimelineView() {
             {todayOffset > 0 && todayOffset < dayCount * cellW && (
               <div
                 className="absolute top-0 bottom-0 w-[2px] bg-indigo-500/50 z-10 pointer-events-none"
-                style={{ left: todayOffset }}
+                style={{ left: `${(todayOffset / (dayCount * cellW)) * 100}%` }}
               />
             )}
           </div>

@@ -1,13 +1,7 @@
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { DayCircles } from './DayCircles';
+import React, { useState, useEffect } from 'react';
 import { useSettingsStore } from '@/stores/settings-store';
 import { PRIORITY_LABELS, PRIORITY_COLORS, SCHEDULED_SLOTS } from '@shared/constants';
-import type { TaskPriority } from '@shared/types';
+import type { TaskPriority, TaskTemplate } from '@shared/types';
 
 interface RecurrenceEditDialogProps {
   open: boolean;
@@ -18,19 +12,21 @@ interface RecurrenceEditDialogProps {
     recurrence_rule: string;
     is_active: boolean;
   }) => void;
+  editingTemplate?: TaskTemplate | null;
 }
 
-const PRESETS: { label: string; freq: string; days?: number[] }[] = [
-  { label: 'Daily', freq: 'FREQ=DAILY' },
-  { label: 'Weekdays', freq: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', days: [0, 1, 2, 3, 4] },
-  { label: 'Weekly', freq: 'FREQ=WEEKLY' },
-  { label: 'Fortnightly', freq: 'FREQ=WEEKLY;INTERVAL=2' },
-  { label: 'Monthly', freq: 'FREQ=MONTHLY' },
+const PRESETS: { label: string; value: string }[] = [
+  { label: 'Daily', value: 'FREQ=DAILY' },
+  { label: 'Weekdays', value: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' },
+  { label: 'Weekly', value: 'FREQ=WEEKLY' },
+  { label: 'Fortnightly', value: 'FREQ=WEEKLY;INTERVAL=2' },
+  { label: 'Monthly', value: 'FREQ=MONTHLY' },
 ];
 
+const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const DAY_CODES = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 
-export function RecurrenceEditDialog({ open, onClose, onSave }: RecurrenceEditDialogProps) {
+export function RecurrenceEditDialog({ open, onClose, onSave, editingTemplate }: RecurrenceEditDialogProps) {
   const categories = useSettingsStore((s) => s.settings.categories);
 
   const [name, setName] = useState('');
@@ -42,6 +38,31 @@ export function RecurrenceEditDialog({ open, onClose, onSave }: RecurrenceEditDi
   const [selectedPreset, setSelectedPreset] = useState('');
   const [customDays, setCustomDays] = useState<number[]>([]);
   const [nameError, setNameError] = useState(false);
+
+  // Populate when editing
+  useEffect(() => {
+    if (editingTemplate) {
+      setName(editingTemplate.name);
+      const td = editingTemplate.template_data || {};
+      setDescription((td.description as string) || '');
+      setPriority((td.priority as TaskPriority) ?? 2);
+      setCategory((td.category as string) || '');
+      setScheduledSlot((td.scheduled_slot as string) || '');
+      setEstimatedMins(td.estimated_mins ? String(td.estimated_mins) : '');
+      setSelectedPreset(editingTemplate.recurrence_rule || '');
+      // Parse active days from RRULE
+      const days: number[] = [];
+      const rule = editingTemplate.recurrence_rule || '';
+      DAY_CODES.forEach((code, idx) => { if (rule.includes(code)) days.push(idx); });
+      setCustomDays(days);
+    } else {
+      setName(''); setDescription(''); setPriority(2); setCategory('');
+      setScheduledSlot(''); setEstimatedMins(''); setSelectedPreset(''); setCustomDays([]);
+    }
+    setNameError(false);
+  }, [editingTemplate, open]);
+
+  if (!open) return null;
 
   const toggleDay = (day: number) => {
     setCustomDays((prev) => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]);
@@ -56,7 +77,7 @@ export function RecurrenceEditDialog({ open, onClose, onSave }: RecurrenceEditDi
       const dayStr = customDays.sort().map((d) => DAY_CODES[d]).join(',');
       rule = `FREQ=WEEKLY;BYDAY=${dayStr}`;
     }
-    if (!rule) { rule = 'FREQ=WEEKLY'; }
+    if (!rule) rule = 'FREQ=WEEKLY';
 
     onSave({
       name: name.trim(),
@@ -72,110 +93,137 @@ export function RecurrenceEditDialog({ open, onClose, onSave }: RecurrenceEditDi
       is_active: true,
     });
 
-    // Reset
-    setName(''); setDescription(''); setPriority(2); setCategory('');
-    setScheduledSlot(''); setEstimatedMins(''); setSelectedPreset(''); setCustomDays([]);
     onClose();
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>New Recurring Task</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <div>
-            <Label>Name *</Label>
-            <Input value={name} onChange={(e) => { setName(e.target.value); setNameError(false); }} placeholder="Task name" className={nameError ? 'border-red-500' : ''} autoFocus />
-            {nameError && <p className="text-xs text-red-500 mt-1">Name is required</p>}
+    <>
+      <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+        <div
+          className="surface w-[500px] max-h-[600px] rounded-xl border border-white/[0.06] flex flex-col shadow-2xl pointer-events-auto"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => { if (e.key === 'Escape') onClose(); if (e.key === 'Enter' && e.ctrlKey) handleSave(); }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06]">
+            <h2 className="text-[15px] font-medium text-zinc-200">
+              {editingTemplate ? 'Edit recurring task' : 'New recurring task'}
+            </h2>
+            <button onClick={onClose} className="text-zinc-500 hover:text-zinc-400 p-1 rounded hover:bg-white/5">
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+            </button>
           </div>
 
-          <div>
-            <Label>Description</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional description" rows={2} />
-          </div>
-
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Label>Priority</Label>
-              <div className="flex gap-1 mt-1">
-                {([0, 1, 2, 3] as TaskPriority[]).map((p) => (
-                  <button key={p} onClick={() => setPriority(p)}
-                    className={`flex-1 h-8 text-xs rounded-[6px] border transition-colors ${priority === p ? 'border-2 font-semibold text-white' : 'border-[rgba(255,255,255,0.06)] text-[#a5a5af] hover:bg-[rgba(255,255,255,0.06)]'}`}
-                    style={priority === p ? { backgroundColor: PRIORITY_COLORS[p], borderColor: PRIORITY_COLORS[p] } : {}}
-                  >{PRIORITY_LABELS[p]}</button>
-                ))}
-              </div>
-            </div>
-            <div className="flex-1">
-              <Label>Category</Label>
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className="w-full h-9 rounded-[6px] border border-[rgba(255,255,255,0.06)] bg-[#0f1117] px-3 text-sm text-[#e2e2e6] mt-1">
-                <option value="">None</option>
-                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Recurrence presets */}
-          <div>
-            <Label>Recurrence</Label>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {PRESETS.map((preset) => (
-                <button key={preset.freq} onClick={() => { setSelectedPreset(preset.freq); if (preset.days) setCustomDays(preset.days); }}
-                  className={`px-3 py-1.5 rounded-[6px] text-xs font-medium border transition-colors ${
-                    selectedPreset === preset.freq
-                      ? 'bg-[#6366f1] text-white border-[#6366f1]'
-                      : 'border-[rgba(255,255,255,0.06)] text-[#a5a5af] hover:bg-[rgba(255,255,255,0.06)]'
-                  }`}
-                >{preset.label}</button>
-              ))}
-              <button onClick={() => setSelectedPreset('custom')}
-                className={`px-3 py-1.5 rounded-[6px] text-xs font-medium border transition-colors ${
-                  selectedPreset === 'custom'
-                    ? 'bg-[#6366f1] text-white border-[#6366f1]'
-                    : 'border-[rgba(255,255,255,0.06)] text-[#a5a5af] hover:bg-[rgba(255,255,255,0.06)]'
-                }`}
-              >Custom</button>
-            </div>
-          </div>
-
-          {/* Custom day picker */}
-          {(selectedPreset === 'custom' || selectedPreset.includes('WEEKLY')) && (
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            {/* Name */}
             <div>
-              <Label>Days of week</Label>
-              <div className="mt-1">
-                <DayCircles activeDays={customDays} />
-                <div className="flex gap-1.5 mt-1">
-                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((_, i) => (
-                    <button key={i} onClick={() => toggleDay(i)} className="w-6 h-1 rounded-full bg-transparent" />
+              <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Name *</label>
+              <input value={name} onChange={(e) => { setName(e.target.value); setNameError(false); }} placeholder="Task name" className={`form-input ${nameError ? 'border-red-500' : ''}`} autoFocus />
+              {nameError && <span className="text-[11px] text-red-400 mt-1 block">Name is required</span>}
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Description</label>
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" className="form-input min-h-[48px] resize-y" rows={2} />
+            </div>
+
+            {/* Priority + Category */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Priority</label>
+                <div className="grid grid-cols-4 gap-1">
+                  {([0, 1, 2, 3] as TaskPriority[]).map((p) => (
+                    <button key={p} type="button" onClick={() => setPriority(p)}
+                      className={`py-1.5 rounded-md text-[11px] font-medium border transition-all text-center ${
+                        priority === p
+                          ? p === 3 ? 'bg-red-500/15 border-red-500/30 text-red-300'
+                            : p === 2 ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+                            : p === 1 ? 'bg-blue-500/15 border-blue-500/30 text-blue-300'
+                            : 'bg-zinc-500/15 border-zinc-500/30 text-zinc-400'
+                          : 'bg-[#12141b] border-white/[0.06] text-zinc-500 hover:border-white/[0.1]'
+                      }`}
+                    >{PRIORITY_LABELS[p]}</button>
                   ))}
                 </div>
               </div>
+              <div>
+                <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Category</label>
+                <select value={category} onChange={(e) => setCategory(e.target.value)} className="form-input">
+                  <option value="">None</option>
+                  {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
             </div>
-          )}
 
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Label>Scheduled Slot</Label>
-              <select value={scheduledSlot} onChange={(e) => setScheduledSlot(e.target.value)} className="w-full h-9 rounded-[6px] border border-[rgba(255,255,255,0.06)] bg-[#0f1117] px-3 text-sm text-[#e2e2e6]">
-                <option value="">None</option>
-                {SCHEDULED_SLOTS.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-              </select>
+            {/* Recurrence presets */}
+            <div>
+              <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Recurrence</label>
+              <div className="flex flex-wrap gap-1.5">
+                {PRESETS.map((preset) => (
+                  <button key={preset.value} type="button" onClick={() => { setSelectedPreset(preset.value); }}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                      selectedPreset === preset.value
+                        ? 'bg-indigo-500 text-white border-indigo-500'
+                        : 'bg-[#12141b] border-white/[0.06] text-zinc-500 hover:border-white/[0.1]'
+                    }`}
+                  >{preset.label}</button>
+                ))}
+                <button type="button" onClick={() => setSelectedPreset('custom')}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                    selectedPreset === 'custom'
+                      ? 'bg-indigo-500 text-white border-indigo-500'
+                      : 'bg-[#12141b] border-white/[0.06] text-zinc-500 hover:border-white/[0.1]'
+                  }`}
+                >Custom</button>
+              </div>
             </div>
-            <div className="flex-1">
-              <Label>Estimated Time</Label>
-              <Input type="number" value={estimatedMins} onChange={(e) => setEstimatedMins(e.target.value)} placeholder="minutes" />
+
+            {/* Custom day picker */}
+            {(selectedPreset === 'custom' || selectedPreset.includes('WEEKLY')) && (
+              <div>
+                <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Days of week</label>
+                <div className="flex gap-1.5">
+                  {DAY_LABELS.map((label, i) => (
+                    <button key={i} type="button" onClick={() => toggleDay(i)}
+                      className={`w-8 h-8 rounded-full text-[11px] font-medium transition-colors ${
+                        customDays.includes(i)
+                          ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                          : 'bg-white/[0.03] text-zinc-600 border border-transparent hover:bg-white/[0.06]'
+                      }`}
+                    >{label}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Slot + Estimated time */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Scheduled Slot</label>
+                <select value={scheduledSlot} onChange={(e) => setScheduledSlot(e.target.value)} className="form-input">
+                  <option value="">None</option>
+                  {SCHEDULED_SLOTS.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[12px] font-medium text-zinc-400 mb-1.5 block">Estimated Time (mins)</label>
+                <input type="number" value={estimatedMins} onChange={(e) => setEstimatedMins(e.target.value)} placeholder="mins" className="form-input" />
+              </div>
             </div>
           </div>
-        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave}>Create Recurring Task</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-white/[0.06]">
+            <button onClick={onClose} className="px-4 py-1.5 rounded-lg text-[13px] border border-white/[0.06] text-zinc-400 hover:bg-white/5">Cancel</button>
+            <button onClick={handleSave} className="px-5 py-1.5 rounded-lg text-[13px] bg-indigo-500 text-white font-medium hover:bg-indigo-600 transition-colors">
+              {editingTemplate ? 'Save changes' : 'Create'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
