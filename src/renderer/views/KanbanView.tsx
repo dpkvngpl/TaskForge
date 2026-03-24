@@ -26,16 +26,16 @@ import { DEFAULT_KANBAN_COLUMNS } from '@shared/constants';
 import type { Task, TaskStatus } from '@shared/types';
 import { isToday, isPast, parseISO, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 
-// Column status icons
+// Column status icons — use inline styles to guarantee sizing
 const columnIcons: Record<string, React.ReactNode> = {
-  todo: <span className="w-4 h-4 rounded-full border-2 border-gray-500 inline-block" />,
+  todo: <span style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #6b7280', display: 'inline-block', flexShrink: 0 }} />,
   in_progress: (
-    <svg className="w-4 h-4 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg style={{ width: 16, height: 16, flexShrink: 0 }} viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
     </svg>
   ),
   done: (
-    <svg className="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg style={{ width: 16, height: 16, flexShrink: 0 }} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10" /><polyline points="9 12 11.5 14.5 16 9.5" />
     </svg>
   ),
