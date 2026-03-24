@@ -15,6 +15,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useDroppable } from '@dnd-kit/core';
 import { useTaskStore } from '@/stores/task-store';
 import { useViewStore } from '@/stores/view-store';
 import { TaskCard } from '@/components/TaskCard';
@@ -64,9 +65,13 @@ function SortableTaskCard({ task }: { task: Task }) {
 
 function KanbanColumn({ status, label, tasks }: { status: TaskStatus; label: string; tasks: Task[] }) {
   const { openTaskForm } = useViewStore();
+  const { setNodeRef, isOver } = useDroppable({ id: `column-${status}`, data: { type: 'column', status } });
 
   return (
-    <div className={`flex flex-col rounded-xl surface-elevated overflow-hidden ${status === 'done' ? 'opacity-80' : ''}`}>
+    <div
+      ref={setNodeRef}
+      className={`flex flex-col rounded-xl surface-elevated overflow-hidden ${status === 'done' ? 'opacity-80' : ''} ${isOver ? 'ring-2 ring-indigo-500/30' : ''}`}
+    >
       {/* Column header */}
       <div className="flex items-center gap-2 px-3.5 py-2.5">
         {colIcons[status]}
@@ -131,28 +136,49 @@ export function KanbanView() {
     let targetTasks: Task[];
 
     if (overData?.type === 'task') {
+      // Dropped on another task — use that task's status
       const overTask = overData.task as Task;
       targetStatus = overTask.status;
       targetTasks = getTasksByStatus(overTask.status);
+    } else if (overData?.type === 'column') {
+      // Dropped on a column droppable
+      targetStatus = overData.status as TaskStatus;
+      targetTasks = getTasksByStatus(targetStatus);
     } else {
-      // Dropped on column
-      return;
+      // Try parsing column id (e.g. "column-todo")
+      const overId = over.id as string;
+      if (overId.startsWith('column-')) {
+        targetStatus = overId.replace('column-', '') as TaskStatus;
+        targetTasks = getTasksByStatus(targetStatus);
+      } else {
+        return;
+      }
     }
 
     if (!targetStatus) return;
 
     // Calculate sort order
-    const overIndex = targetTasks.findIndex((t) => t.id === over.id);
     let newSortOrder: number;
 
-    if (overIndex === 0) {
-      newSortOrder = targetTasks[0].sort_order - 1;
-    } else if (overIndex === targetTasks.length - 1) {
-      newSortOrder = targetTasks[overIndex].sort_order + 1;
+    if (overData?.type === 'task') {
+      // Dropped on a specific task — insert near it
+      const overIndex = targetTasks.findIndex((t) => t.id === over.id);
+      if (targetTasks.length === 0) {
+        newSortOrder = 1;
+      } else if (overIndex <= 0) {
+        newSortOrder = targetTasks[0].sort_order - 1;
+      } else if (overIndex >= targetTasks.length - 1) {
+        newSortOrder = targetTasks[targetTasks.length - 1].sort_order + 1;
+      } else {
+        newSortOrder = (targetTasks[overIndex - 1].sort_order + targetTasks[overIndex].sort_order) / 2;
+      }
     } else {
-      const above = targetTasks[overIndex - 1];
-      const below = targetTasks[overIndex];
-      newSortOrder = (above.sort_order + below.sort_order) / 2;
+      // Dropped on column itself — add at the end
+      if (targetTasks.length === 0) {
+        newSortOrder = 1;
+      } else {
+        newSortOrder = targetTasks[targetTasks.length - 1].sort_order + 1;
+      }
     }
 
     reorderTask(taskId, targetStatus, newSortOrder);
