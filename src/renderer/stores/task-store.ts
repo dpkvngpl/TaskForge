@@ -70,6 +70,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
 
     try {
       await window.taskforge.tasks.reorder(id, newStatus, newSortOrder);
+      // Reload to get server-set fields like completed_at
+      await get().loadTasks();
     } catch (err) {
       console.error('Reorder failed:', err);
       await get().loadTasks(); // Reload on failure

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTaskStore } from '@/stores/task-store';
 import { TaskDetailPanel } from '@/components/TaskDetailPanel';
 import { TaskForm } from '@/components/TaskForm';
 import { RecurrenceEditDialog } from '@/components/RecurrenceEditDialog';
@@ -151,13 +152,35 @@ export function RecurrenceView() {
     alert('Task created from template');
   };
 
-  const handleCreateRecurring = async (data: {
+  const handleSaveRecurring = async (data: {
     name: string;
     template_data: Record<string, unknown>;
     recurrence_rule: string;
     is_active: boolean;
   }) => {
-    await window.taskforge.templates.create(data);
+    if (editingTemplate) {
+      // Update existing template
+      await window.taskforge.templates.update(editingTemplate.id, data);
+    } else {
+      // Create new template + create first task instance immediately
+      const tmpl = await window.taskforge.templates.create(data);
+      // Also create an actual task so it shows in Kanban/Week/Focus
+      await window.taskforge.tasks.create({
+        title: data.name,
+        description: (data.template_data.description as string) || null,
+        priority: (data.template_data.priority as number) ?? 2,
+        category: (data.template_data.category as string) || null,
+        estimated_mins: (data.template_data.estimated_mins as number) || null,
+        scheduled_slot: (data.template_data.scheduled_slot as string) || null,
+        recurrence_rule: data.recurrence_rule,
+        source_connector: 'template',
+        source_id: tmpl.id,
+        status: 'todo',
+      } as any);
+      // Reload task store so Kanban/Focus/Week pick it up
+      useTaskStore.getState().loadTasks();
+    }
+    setEditingTemplate(null);
     loadTemplates();
   };
 
@@ -274,7 +297,7 @@ export function RecurrenceView() {
       <RecurrenceEditDialog
         open={isDialogOpen}
         onClose={() => { setIsDialogOpen(false); setEditingTemplate(null); }}
-        onSave={handleCreateRecurring}
+        onSave={handleSaveRecurring}
         editingTemplate={editingTemplate}
       />
       <TaskDetailPanel />
