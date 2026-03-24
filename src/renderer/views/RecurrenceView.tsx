@@ -51,6 +51,55 @@ function Toggle({ active, onChange }: { active: boolean; onChange: (val: boolean
   );
 }
 
+function RecurrenceCardItem({ template: tmpl, onEdit, onDelete, onToggle }: {
+  template: TaskTemplate; onEdit: () => void; onDelete: () => void; onToggle: () => void;
+}) {
+  const priority = (tmpl.template_data?.priority ?? 2) as 0 | 1 | 2 | 3;
+  const category = (tmpl.template_data?.category as string) ?? null;
+  const activeDays = getActiveDays(tmpl.recurrence_rule);
+  const [desc, setDesc] = useState('');
+
+  useEffect(() => {
+    if (tmpl.recurrence_rule) {
+      window.taskforge.recurrence.describe(tmpl.recurrence_rule).then(setDesc).catch(() => setDesc(tmpl.recurrence_rule || ''));
+    }
+  }, [tmpl.recurrence_rule]);
+
+  return (
+    <div className={`surface rounded-xl p-3.5 border border-white/[0.03] transition-all ${tmpl.is_active ? '' : 'opacity-50'}`}>
+      <div className="flex items-start justify-between mb-2">
+        <div className="text-[14px] font-medium text-zinc-200">{tmpl.name}</div>
+        <div className="flex items-center gap-2">
+          <button onClick={onEdit} className="w-6 h-6 rounded flex items-center justify-center text-zinc-600 hover:text-zinc-400 hover:bg-white/5" title="Edit">
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+          </button>
+          <button onClick={onDelete} className="w-6 h-6 rounded flex items-center justify-center text-zinc-600 hover:text-red-400 hover:bg-white/5" title="Delete">
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+            </svg>
+          </button>
+          <Toggle active={tmpl.is_active} onChange={onToggle} />
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 mb-2">
+        <svg className="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M17 1l4 4-4 4" /><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4" /><path d="M21 13v2a4 4 0 01-4 4H3" />
+        </svg>
+        <span className="text-[12px] text-zinc-400 capitalize">{desc || 'Loading...'}</span>
+        {!tmpl.is_active && <span className="text-[11px] text-zinc-600">— paused</span>}
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <CategoryChip category={category} />
+        <PriorityBadge priority={priority} variant="pill" />
+      </div>
+      <DayCircles activeDays={activeDays} />
+    </div>
+  );
+}
+
 export function RecurrenceView() {
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -156,69 +205,15 @@ export function RecurrenceView() {
           )}
 
           <div className="space-y-2">
-            {recurringTemplates.map((tmpl) => {
-              const priority = (tmpl.template_data?.priority ?? 2) as 0 | 1 | 2 | 3;
-              const category = (tmpl.template_data?.category as string) ?? null;
-              const activeDays = getActiveDays(tmpl.recurrence_rule);
-              const [desc, setDesc] = React.useState('');
-              React.useEffect(() => {
-                if (tmpl.recurrence_rule) {
-                  window.taskforge.recurrence.describe(tmpl.recurrence_rule).then(setDesc);
-                }
-              }, [tmpl.recurrence_rule]);
-
-              return (
-                <div
-                  key={tmpl.id}
-                  className={`surface rounded-xl p-3.5 border border-white/[0.03] transition-all ${
-                    tmpl.is_active ? '' : 'opacity-50'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="text-[14px] font-medium text-zinc-200">{tmpl.name}</div>
-                    <div className="flex items-center gap-2">
-                      {/* Edit button */}
-                      <button
-                        onClick={() => handleEditClick(tmpl)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-zinc-600 hover:text-zinc-400 hover:bg-white/5"
-                        title="Edit"
-                      >
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                      </button>
-                      {/* Delete button */}
-                      <button
-                        onClick={() => handleDelete(tmpl.id, tmpl.name)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-zinc-600 hover:text-red-400 hover:bg-white/5"
-                        title="Delete"
-                      >
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                        </svg>
-                      </button>
-                      <Toggle active={tmpl.is_active} onChange={() => handleToggle(tmpl.id, tmpl.is_active)} />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <svg className="w-3.5 h-3.5 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17 1l4 4-4 4" /><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4" /><path d="M21 13v2a4 4 0 01-4 4H3" />
-                    </svg>
-                    <span className="text-[12px] text-zinc-400 capitalize">{desc || 'Loading...'}</span>
-                    {!tmpl.is_active && <span className="text-[11px] text-zinc-600">— paused</span>}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <CategoryChip category={category} />
-                    <PriorityBadge priority={priority} variant="pill" />
-                  </div>
-
-                  <DayCircles activeDays={activeDays} />
-                </div>
-              );
-            })}
+            {recurringTemplates.map((tmpl) => (
+              <RecurrenceCardItem
+                key={tmpl.id}
+                template={tmpl}
+                onEdit={() => handleEditClick(tmpl)}
+                onDelete={() => handleDelete(tmpl.id, tmpl.name)}
+                onToggle={() => handleToggle(tmpl.id, tmpl.is_active)}
+              />
+            ))}
           </div>
         </div>
 

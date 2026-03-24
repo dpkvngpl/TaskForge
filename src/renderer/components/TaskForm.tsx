@@ -193,14 +193,42 @@ export function TaskForm() {
           </Field>
 
           {/* Due date + time */}
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Due date">
-              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="form-input text-[12px]" />
-            </Field>
-            <Field label="Due time">
-              <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="form-input text-[12px]" />
-            </Field>
-          </div>
+          <Field label="Due date">
+            <div className="flex items-center gap-2">
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="form-input text-[12px] w-[160px]" />
+              <div className="flex gap-1">
+                {[
+                  { label: 'Today', offset: 0 },
+                  { label: 'Tomorrow', offset: 1 },
+                  { label: 'Next week', offset: 7 },
+                ].map(({ label, offset }) => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + offset);
+                  const val = d.toISOString().split('T')[0];
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setDueDate(val)}
+                      className={`px-2 py-1 rounded-md text-[11px] border transition-colors ${
+                        dueDate === val
+                          ? 'bg-indigo-500/12 border-indigo-500/30 text-indigo-300'
+                          : 'surface-elevated border-white/[0.06] text-zinc-500 hover:border-white/[0.1]'
+                      }`}
+                    >{label}</button>
+                  );
+                })}
+                {dueDate && (
+                  <button type="button" onClick={() => setDueDate('')} className="px-1.5 py-1 rounded-md text-[11px] text-zinc-600 hover:text-zinc-400 hover:bg-white/5">
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          </Field>
+          <Field label="Due time">
+            <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="form-input text-[12px] w-[160px]" />
+          </Field>
 
           {/* Estimated time */}
           <Field label="Estimated time">
