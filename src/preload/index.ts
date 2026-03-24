@@ -50,6 +50,14 @@ const api = {
     quit: () => ipcRenderer.send('app:quit'),
   },
 
+  connectors: {
+    list: () => ipcRenderer.invoke('connector:list'),
+    authenticate: (connectorId: string) => ipcRenderer.invoke('connector:authenticate', connectorId),
+    deauthenticate: (connectorId: string) => ipcRenderer.invoke('connector:deauthenticate', connectorId),
+    fetch: (connectorId: string, options?: Record<string, unknown>) => ipcRenderer.invoke('connector:fetch', connectorId, options),
+    convertToTask: (connectorId: string, item: Record<string, unknown>) => ipcRenderer.invoke('connector:convertToTask', connectorId, item),
+  },
+
   recurrence: {
     process: () => ipcRenderer.invoke('recurrence:process'),
     buildRRule: (options: Record<string, unknown>) => ipcRenderer.invoke('recurrence:buildRRule', options),

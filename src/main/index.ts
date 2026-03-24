@@ -5,7 +5,12 @@ import { registerTaskHandlers } from './ipc-handlers';
 import { BackupService } from './services/backup';
 import { startNotificationService, stopNotificationService, checkOverdueOnStartup } from './services/notification';
 import { startRecurrenceService, stopRecurrenceService } from './services/recurrence';
+import { ConnectorManager } from './connectors/manager';
+import { OutlookConnector } from './connectors/outlook';
+import { ManualEntryConnector } from './connectors/manual';
 import { createTray } from './tray';
+
+export let connectorManager: ConnectorManager;
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
@@ -90,6 +95,13 @@ async function bootstrap(): Promise<void> {
   // Create window and tray
   createWindow();
   createTray(mainWindow!, isDev, isQuitting, (val: boolean) => { isQuitting = val; });
+
+  // Initialize connectors
+  connectorManager = new ConnectorManager();
+  connectorManager.register(new ManualEntryConnector());
+  const outlookConnector = new OutlookConnector();
+  await outlookConnector.initialize();
+  connectorManager.register(outlookConnector);
 
   // Start notification service
   startNotificationService(mainWindow!);

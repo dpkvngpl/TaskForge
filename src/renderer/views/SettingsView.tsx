@@ -149,6 +149,52 @@ export function SettingsView() {
 
         <Separator />
 
+        {/* Connections */}
+        <section>
+          <h2 className="text-lg font-semibold mb-3">Connections</h2>
+          <div className="p-4 rounded-lg bg-card border border-border">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📧</span>
+                <span className="text-sm font-medium">Outlook Email</span>
+              </div>
+              <OutlookStatus />
+            </div>
+            <div className="space-y-2">
+              <div>
+                <Label className="text-xs">Client ID (from Azure AD)</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    id="outlook-client-id"
+                    placeholder="Paste your Azure App Client ID"
+                    className="text-xs"
+                    defaultValue=""
+                    onBlur={(e) => {
+                      if (e.target.value) {
+                        window.taskforge.settings.set('outlook_client_id', e.target.value);
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={async () => {
+                  try {
+                    await window.taskforge.connectors.authenticate('outlook');
+                  } catch (err) {
+                    console.error('Auth failed:', err);
+                  }
+                }}>Connect</Button>
+                <Button size="sm" variant="outline" onClick={async () => {
+                  await window.taskforge.connectors.deauthenticate('outlook');
+                }}>Disconnect</Button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <Separator />
+
         {/* Data */}
         <section>
           <h2 className="text-lg font-semibold mb-3">Data</h2>
@@ -175,5 +221,26 @@ export function SettingsView() {
         </section>
       </div>
     </div>
+  );
+}
+
+function OutlookStatus() {
+  const [status, setStatus] = React.useState<'checking' | 'connected' | 'disconnected'>('checking');
+
+  React.useEffect(() => {
+    window.taskforge.connectors.list().then((connectors: any[]) => {
+      const outlook = connectors.find((c) => c.id === 'outlook');
+      setStatus(outlook?.authenticated ? 'connected' : 'disconnected');
+    });
+  }, []);
+
+  return (
+    <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+      status === 'connected' ? 'bg-green-500/15 text-green-400' :
+      status === 'disconnected' ? 'bg-red-500/15 text-red-400' :
+      'bg-gray-500/15 text-gray-400'
+    }`}>
+      {status === 'checking' ? '...' : status === 'connected' ? 'Connected' : 'Not connected'}
+    </span>
   );
 }

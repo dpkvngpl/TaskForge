@@ -4,6 +4,7 @@ import { getSetting, setSetting, getAllSettings } from './database/settings';
 import { getRecentActivity, undoLastAction } from './database/activity-log';
 import { getAllTemplates, createTemplate, updateTemplate, deleteTemplate, createTaskFromTemplate } from './database/templates';
 import { checkOverdueOnStartup } from './services/notification';
+import type { NewTask } from '../shared/types';
 import { processRecurrences, buildRRule, describeRRule } from './services/recurrence';
 import { RRule } from 'rrule';
 import { IPC } from '../shared/ipc-channels';
@@ -70,6 +71,45 @@ export function registerTaskHandlers(): void {
   // ---- Notifications ----
   ipcMain.handle(IPC.NOTIFICATIONS_GET_OVERDUE_COUNT, () => {
     return checkOverdueOnStartup();
+  });
+
+  // ---- Connectors ----
+  ipcMain.handle(IPC.CONNECTOR_LIST, () => {
+    const { connectorManager } = require('./index');
+    return connectorManager.getAll().map((c: any) => ({
+      id: c.id, name: c.name, icon: c.icon,
+      authenticated: c.isAuthenticated(),
+      lastSync: c.getLastSyncTime()?.toISOString() || null,
+    }));
+  });
+
+  ipcMain.handle(IPC.CONNECTOR_AUTHENTICATE, async (_event, connectorId: string) => {
+    const { connectorManager } = require('./index');
+    const connector = connectorManager.get(connectorId);
+    if (!connector) throw new Error(`Connector not found: ${connectorId}`);
+    await connector.authenticate();
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC.CONNECTOR_DEAUTHENTICATE, async (_event, connectorId: string) => {
+    const { connectorManager } = require('./index');
+    const connector = connectorManager.get(connectorId);
+    if (!connector) throw new Error(`Connector not found: ${connectorId}`);
+    await connector.deauthenticate();
+    return { success: true };
+  });
+
+  ipcMain.handle(IPC.CONNECTOR_FETCH, async (_event, connectorId: string, options?) => {
+    const { connectorManager } = require('./index');
+    return connectorManager.fetchFrom(connectorId, options);
+  });
+
+  ipcMain.handle(IPC.CONNECTOR_CONVERT_TO_TASK, async (_event, connectorId: string, item) => {
+    const { connectorManager } = require('./index');
+    const connector = connectorManager.get(connectorId);
+    if (!connector) throw new Error(`Connector not found: ${connectorId}`);
+    const taskData = connector.toTask(item);
+    return createTask(taskData as NewTask);
   });
 
   // ---- Recurrence ----
