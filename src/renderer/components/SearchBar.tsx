@@ -1,50 +1,51 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Input } from '@/components/ui/input';
+import React, { useState, useRef, useCallback } from 'react';
 import { useTaskStore } from '@/stores/task-store';
 
-export function SearchBar() {
+interface SearchBarProps {
+  placeholder?: string;
+  className?: string;
+}
+
+export function SearchBar({ placeholder = 'Search tasks...', className = '' }: SearchBarProps) {
   const [value, setValue] = useState('');
   const setSearchQuery = useTaskStore((s) => s.setSearchQuery);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timeout = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      setSearchQuery(value);
-    }, 300);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [value, setSearchQuery]);
+  const handleChange = useCallback(
+    (newValue: string) => {
+      setValue(newValue);
+      clearTimeout(timeout.current);
+      timeout.current = setTimeout(() => {
+        setSearchQuery(newValue);
+      }, 300);
+    },
+    [setSearchQuery]
+  );
+
+  const handleClear = () => {
+    setValue('');
+    setSearchQuery('');
+  };
 
   return (
-    <div className="relative">
-      <svg
-        className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
+    <div className={`flex items-center gap-1.5 surface-elevated rounded-md border border-white/[0.06] px-2.5 py-1.5 focus-within:border-indigo-500/40 transition-colors ${className}`}>
+      <svg className="w-3.5 h-3.5 text-zinc-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.3-4.3" />
+        <path d="M21 21l-4.35-4.35" />
       </svg>
-      <Input
+      <input
         value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Search tasks..."
-        className="pl-9 h-8 text-sm"
+        onChange={(e) => handleChange(e.target.value)}
+        placeholder={placeholder}
+        className="flex-1 bg-transparent text-[12px] text-zinc-300 placeholder-zinc-600 outline-none"
       />
       {value && (
         <button
-          onClick={() => setValue('')}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          onClick={handleClear}
+          className="text-zinc-600 hover:text-zinc-400 transition-colors"
         >
-          <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
       )}

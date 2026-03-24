@@ -1,50 +1,51 @@
 import React from 'react';
-import { formatDistanceToNow, parseISO, isToday, isPast, isTomorrow, differenceInDays } from 'date-fns';
+import { differenceInDays, isToday, isTomorrow, isPast, parseISO, format } from 'date-fns';
 
 interface DueDateChipProps {
   dueDate: string | null;
   dueTime?: string | null;
-  compact?: boolean;
+  showIcon?: boolean;
 }
 
-export function DueDateChip({ dueDate, dueTime, compact = false }: DueDateChipProps) {
+export function DueDateChip({ dueDate, dueTime, showIcon = false }: DueDateChipProps) {
   if (!dueDate) return null;
 
   const date = parseISO(dueDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const diff = differenceInDays(date, today);
   const overdue = isPast(date) && !isToday(date);
-  const today = isToday(date);
-  const tomorrow = isTomorrow(date);
 
   let label: string;
+  let colorClass: string;
+
   if (overdue) {
-    const days = Math.abs(differenceInDays(new Date(), date));
-    label = `Overdue ${days}d`;
-  } else if (today) {
-    label = 'Due today';
-  } else if (tomorrow) {
-    label = 'Due tomorrow';
+    const daysOverdue = Math.abs(diff);
+    label = daysOverdue === 1 ? 'Overdue 1d' : `Overdue ${daysOverdue}d`;
+    colorClass = 'bg-red-500/10 text-red-300';
+  } else if (isToday(date)) {
+    label = dueTime ? `Today ${dueTime}` : 'Due today';
+    colorClass = 'bg-amber-500/10 text-amber-300';
+  } else if (isTomorrow(date)) {
+    label = 'Tomorrow';
+    colorClass = 'bg-amber-500/10 text-amber-200';
+  } else if (diff <= 7) {
+    label = `Due ${format(date, 'EEE')}`;
+    colorClass = 'bg-zinc-500/10 text-zinc-400';
   } else {
-    const days = differenceInDays(date, new Date());
-    if (days <= 7) {
-      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      label = `Due ${dayNames[date.getDay()]}`;
-    } else {
-      label = `Due next week`;
-    }
+    label = format(date, 'MMM d');
+    colorClass = 'bg-zinc-500/10 text-zinc-400';
   }
-
-  if (dueTime && !compact) {
-    label += ` at ${dueTime}`;
-  }
-
-  const colorClasses = overdue
-    ? 'bg-red-500/15 text-red-400 border-red-500/20'
-    : today
-      ? 'bg-amber-500/15 text-amber-400 border-amber-500/20'
-      : 'bg-white/5 text-gray-400 border-white/5';
 
   return (
-    <span className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded border ${colorClasses}`}>
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] ${colorClass}`}>
+      {showIcon && (
+        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 6v6l4 2" />
+        </svg>
+      )}
       {label}
     </span>
   );

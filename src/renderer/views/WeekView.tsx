@@ -1,74 +1,31 @@
 import React, { useState, useMemo } from 'react';
-import {
-  DndContext,
-  DragOverlay,
-  useDraggable,
-  useDroppable,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core';
-import { WeekTaskBlock } from '@/components/WeekTaskBlock';
-import { TaskDetailPanel } from '@/components/TaskDetailPanel';
-import { TaskForm } from '@/components/TaskForm';
 import { useTaskStore } from '@/stores/task-store';
 import { useViewStore } from '@/stores/view-store';
-import { PRIORITY_COLORS } from '@shared/constants';
-import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
+import { TaskDetailPanel } from '@/components/TaskDetailPanel';
+import { TaskForm } from '@/components/TaskForm';
+import { PriorityBadge } from '@/components/PriorityBadge';
+import { CategoryChip } from '@/components/CategoryChip';
+import { format, startOfWeek, addDays, isToday, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import type { Task } from '@shared/types';
 
 const SLOTS = ['morning', 'afternoon', 'evening'] as const;
-const SLOT_LABELS: Record<string, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-// Droppable cell for each day+slot
-function SlotCell({ dayStr, slot, children }: { dayStr: string; slot: string; children: React.ReactNode }) {
-  const droppableId = `${dayStr}-${slot}`;
-  const { setNodeRef, isOver } = useDroppable({ id: droppableId });
-
-  return (
-    <td
-      ref={setNodeRef}
-      className={`p-1 border-l border-[rgba(255,255,255,0.06)] align-top h-24 min-w-[100px] transition-colors ${
-        isOver ? 'bg-[rgba(99,102,241,0.08)]' : ''
-      }`}
-    >
-      <div className="space-y-1">{children}</div>
-    </td>
-  );
-}
-
-// Draggable unscheduled card
-function UnscheduledCard({ task, onClick }: { task: Task; onClick: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: task.id,
-    data: { task },
-  });
-
-  const style = transform
-    ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 }
-    : {};
+function WeekTaskBlock({ task, onClick }: { task: Task; onClick: () => void }) {
+  const borderMap = { 3: 'border-l-red-500', 2: 'border-l-amber-500', 1: 'border-l-blue-500', 0: 'border-l-zinc-600' } as const;
+  const bgMap = { 3: 'bg-red-500/[0.06]', 2: 'bg-amber-500/[0.06]', 1: 'bg-blue-500/[0.06]', 0: 'bg-zinc-500/[0.06]' } as const;
 
   return (
     <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      onClick={(e) => { e.stopPropagation(); onClick(); }}
-      style={{
-        ...style,
-        borderLeftWidth: '3px',
-        borderLeftColor: PRIORITY_COLORS[task.priority],
-        opacity: isDragging ? 0.4 : 1,
-      }}
-      className="p-2 rounded-lg bg-[#1a1d27] border border-[rgba(255,255,255,0.06)] cursor-grab active:cursor-grabbing hover:border-[rgba(255,255,255,0.12)] transition-all"
+      onClick={onClick}
+      className={`rounded-md px-1.5 py-1 border-l-2 cursor-pointer hover:opacity-80 transition-opacity ${borderMap[task.priority]} ${bgMap[task.priority]}`}
     >
-      <p className="text-xs font-medium text-[#e2e2e6]">{task.title}</p>
-      <p className="text-[10px] text-[#6b7280] mt-0.5">
-        {task.due_date ? `Due ${format(parseISO(task.due_date), 'EEE')}` : 'No due date'}
-      </p>
+      <div className="text-[11px] font-medium text-zinc-200 leading-tight truncate">{task.title}</div>
+      <div className="flex items-center gap-1 mt-0.5">
+        {task.estimated_mins && (
+          <span className="text-[10px] text-zinc-500">~{task.estimated_mins >= 60 ? `${Math.floor(task.estimated_mins / 60)}h` : `${task.estimated_mins}m`}</span>
+        )}
+        {task.category && <span className="text-[10px] text-zinc-500">&middot; {task.category}</span>}
+      </div>
     </div>
   );
 }
@@ -76,176 +33,179 @@ function UnscheduledCard({ task, onClick }: { task: Task; onClick: () => void })
 export function WeekView() {
   const { tasks, updateTask } = useTaskStore();
   const { openTaskDetail } = useViewStore();
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const days = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  }, [weekStart]);
 
-  const weekStart = useMemo(() => addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), weekOffset * 7), [weekOffset]);
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
+  const weekEnd = days[6];
 
-  // Group scheduled tasks by "YYYY-MM-DD-slot"
-  const scheduledMap = useMemo(() => {
-    const map: Record<string, Task[]> = {};
-    for (const task of tasks) {
-      if (task.scheduled_date && task.scheduled_slot && task.status !== 'done' && task.status !== 'archived') {
-        const key = `${task.scheduled_date}-${task.scheduled_slot}`;
-        if (!map[key]) map[key] = [];
-        map[key].push(task);
-      }
-    }
-    return map;
+  // Tasks scheduled this week
+  const scheduledTasks = useMemo(() => {
+    const start = format(days[0], 'yyyy-MM-dd');
+    const end = format(days[6], 'yyyy-MM-dd');
+    return tasks.filter(
+      (t) => t.scheduled_date && t.scheduled_date >= start && t.scheduled_date <= end && t.status !== 'archived'
+    );
+  }, [tasks, days]);
+
+  // Unscheduled tasks (have due date but no scheduled date)
+  const unscheduled = useMemo(() => {
+    return tasks.filter(
+      (t) => t.due_date && !t.scheduled_date && t.status !== 'done' && t.status !== 'archived'
+    ).sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''));
   }, [tasks]);
 
-  // Unscheduled: has due_date but no scheduled_date, or no scheduled_slot
-  const unscheduled = useMemo(
-    () => tasks.filter((t) =>
-      t.status !== 'done' && t.status !== 'archived' &&
-      (!t.scheduled_date || !t.scheduled_slot)
-    ).sort((a, b) => {
-      if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
-      if (a.due_date) return -1;
-      if (b.due_date) return 1;
-      return b.priority - a.priority;
-    }),
-    [tasks]
-  );
-
-  const scheduledCount = useMemo(() =>
-    tasks.filter((t) => t.scheduled_date && t.scheduled_slot && t.status !== 'done' && t.status !== 'archived').length,
-    [tasks]
-  );
-  const totalActive = useMemo(() =>
-    tasks.filter((t) => t.status !== 'done' && t.status !== 'archived').length,
-    [tasks]
-  );
-
-  const weekLabel = `${format(days[0], 'd')} - ${format(days[6], 'd MMM yyyy')}`;
-
-  const handleDragStart = (event: DragStartEvent) => {
-    const task = tasks.find((t) => t.id === event.active.id);
-    setActiveTask(task ?? null);
+  const getTasksForSlot = (day: Date, slot: string) => {
+    const dateStr = format(day, 'yyyy-MM-dd');
+    return scheduledTasks.filter((t) => t.scheduled_date === dateStr && t.scheduled_slot === slot);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveTask(null);
-    const { active, over } = event;
-    if (!over) return;
-
-    const taskId = active.id as string;
-    const droppableId = over.id as string;
-
-    // Parse droppable id: "YYYY-MM-DD-slot"
-    const match = droppableId.match(/^(\d{4}-\d{2}-\d{2})-(\w+)$/);
-    if (!match) return;
-
-    const [, date, slot] = match;
-    updateTask(taskId, {
-      scheduled_date: date,
+  const handleDropToSlot = async (taskId: string, day: Date, slot: string) => {
+    await updateTask(taskId, {
+      scheduled_date: format(day, 'yyyy-MM-dd'),
       scheduled_slot: slot,
     });
   };
 
-  const progressPct = totalActive > 0 ? Math.round((scheduledCount / totalActive) * 100) : 0;
+  const scheduledCount = scheduledTasks.length;
+  const doneCount = scheduledTasks.filter((t) => t.status === 'done').length;
+  const progressPct = scheduledCount > 0 ? Math.round((doneCount / scheduledCount) * 100) : 0;
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-3 flex items-center gap-4 border-b border-[rgba(255,255,255,0.06)]">
-        <span className="text-lg font-bold"><span className="text-[#6366f1]">Task</span><span className="text-[#e2e2e6]">Forge</span></span>
-        <div className="flex items-center gap-2 mx-auto">
-          <button onClick={() => setWeekOffset((o) => o - 1)} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#a5a5af] hover:bg-[rgba(255,255,255,0.06)] hover:text-[#e2e2e6] transition-colors">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m15 18-6-6 6-6" /></svg>
+      <div className="flex items-center gap-3 px-5 py-2.5 border-b border-white/[0.04]">
+        <div className="text-[15px] font-medium text-zinc-200">
+          <span className="text-indigo-400">Task</span>Forge
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          <button
+            onClick={() => setWeekStart(subWeeks(weekStart, 1))}
+            className="px-2 py-1 rounded-md border border-white/[0.08] text-zinc-400 text-[12px] hover:bg-white/5"
+          >
+            &larr;
           </button>
-          <span className="text-sm font-semibold text-[#e2e2e6] min-w-[180px] text-center">{weekLabel}</span>
-          <button onClick={() => setWeekOffset((o) => o + 1)} className="w-8 h-8 flex items-center justify-center rounded-lg text-[#a5a5af] hover:bg-[rgba(255,255,255,0.06)] hover:text-[#e2e2e6] transition-colors">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m9 18 6-6-6-6" /></svg>
+          <span className="text-[14px] font-medium text-zinc-200 min-w-[180px] text-center">
+            {format(days[0], 'd')} &ndash; {format(days[6], 'd MMM yyyy')}
+          </span>
+          <button
+            onClick={() => setWeekStart(addWeeks(weekStart, 1))}
+            className="px-2 py-1 rounded-md border border-white/[0.08] text-zinc-400 text-[12px] hover:bg-white/5"
+          >
+            &rarr;
+          </button>
+          <button
+            onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+            className="px-3 py-1 rounded-md bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-[12px] hover:bg-indigo-500/25"
+          >
+            Today
           </button>
         </div>
-        <button onClick={() => setWeekOffset(0)} className="px-3 py-1.5 rounded-[6px] text-xs font-medium text-[#e2e2e6] border border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.06)] transition-colors">
-          Today
-        </button>
       </div>
 
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex-1 flex min-h-0 overflow-hidden">
-          {/* Main grid */}
-          <div className="flex-1 overflow-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="w-[72px] p-2 text-xs text-[#6b7280] font-normal text-left" />
-                  {days.map((day, i) => {
-                    const isToday = isSameDay(day, new Date());
-                    const isWeekend = i >= 5;
-                    return (
-                      <th key={i} className={`p-2 text-center border-l border-[rgba(255,255,255,0.06)] ${isToday ? 'bg-[rgba(99,102,241,0.03)]' : ''}`}>
-                        <div className={`text-[11px] font-normal ${isToday ? 'text-[#6366f1]' : isWeekend ? 'text-[#4b4b55]' : 'text-[#6b7280]'}`}>{DAY_NAMES[i]}</div>
-                        <div className={`text-lg font-bold ${isToday ? 'text-[#6366f1]' : isWeekend ? 'text-[#4b4b55]' : 'text-[#e2e2e6]'}`}>{format(day, 'd')}</div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {SLOTS.map((slot) => (
-                  <tr key={slot} className="border-t border-[rgba(255,255,255,0.06)]">
-                    <td className="p-2 text-xs text-[#6b7280] align-top font-normal">{SLOT_LABELS[slot]}</td>
-                    {days.map((day, di) => {
-                      const dayStr = format(day, 'yyyy-MM-dd');
-                      const key = `${dayStr}-${slot}`;
-                      const cellTasks = scheduledMap[key] ?? [];
-                      const isToday = isSameDay(day, new Date());
-                      return (
-                        <SlotCell key={di} dayStr={dayStr} slot={slot}>
-                          {cellTasks.map((task) => (
-                            <WeekTaskBlock key={task.id} task={task} onClick={() => openTaskDetail(task.id)} />
-                          ))}
-                        </SlotCell>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Main content */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Week grid */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Day headers */}
+          <div className="grid grid-cols-[72px_repeat(7,1fr)] border-b border-white/[0.04]">
+            <div /> {/* spacer for slot label column */}
+            {days.map((day) => {
+              const today = isToday(day);
+              return (
+                <div
+                  key={day.toISOString()}
+                  className={`text-center py-2 ${today ? 'bg-indigo-500/[0.04]' : ''}`}
+                >
+                  <div className={`text-[11px] ${today ? 'text-indigo-300' : 'text-zinc-600'}`}>
+                    {format(day, 'EEE')}
+                  </div>
+                  <div className={`text-[17px] font-medium mt-px ${today ? 'text-indigo-300' : 'text-zinc-400'}`}>
+                    {format(day, 'd')}
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
-          {/* Unscheduled sidebar */}
-          <div className="w-[200px] border-l border-[rgba(255,255,255,0.06)] flex flex-col overflow-hidden shrink-0">
-            <div className="px-3 py-2.5 flex items-center justify-between border-b border-[rgba(255,255,255,0.06)]">
-              <span className="text-sm font-semibold text-[#e2e2e6]">Unscheduled</span>
-              <span className="text-xs text-[#6b7280] bg-[rgba(255,255,255,0.06)] rounded-full px-2 py-0.5">{unscheduled.length}</span>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-2">
-              {unscheduled.map((task) => (
-                <UnscheduledCard key={task.id} task={task} onClick={() => openTaskDetail(task.id)} />
-              ))}
-              {unscheduled.length === 0 && (
-                <p className="text-xs text-[#4b4b55] text-center py-4">All tasks scheduled!</p>
-              )}
-            </div>
+          {/* Slot rows */}
+          <div className="flex-1 grid grid-cols-[72px_repeat(7,1fr)] grid-rows-3 overflow-hidden">
+            {SLOTS.map((slot) => (
+              <React.Fragment key={slot}>
+                <div className="flex items-start justify-end pr-2 pt-2 text-[11px] text-zinc-600 capitalize border-b border-r border-white/[0.03]">
+                  {slot}
+                </div>
+                {days.map((day) => {
+                  const cellTasks = getTasksForSlot(day, slot);
+                  const today = isToday(day);
+
+                  return (
+                    <div
+                      key={`${day.toISOString()}-${slot}`}
+                      className={`border-b border-r border-white/[0.03] p-1 flex flex-col gap-1 overflow-y-auto ${
+                        today ? 'bg-indigo-500/[0.02]' : ''
+                      }`}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        const taskId = e.dataTransfer.getData('taskId');
+                        if (taskId) handleDropToSlot(taskId, day, slot);
+                      }}
+                    >
+                      {cellTasks.map((task) => (
+                        <WeekTaskBlock
+                          key={task.id}
+                          task={task}
+                          onClick={() => openTaskDetail(task.id)}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
           </div>
         </div>
 
-        <DragOverlay>
-          {activeTask && (
-            <div
-              className="px-2 py-1.5 rounded bg-[#1a1d27] border border-[rgba(255,255,255,0.12)] shadow-xl"
-              style={{ borderLeftWidth: '3px', borderLeftColor: PRIORITY_COLORS[activeTask.priority] }}
-            >
-              <p className="text-[11px] font-medium text-[#e2e2e6]">{activeTask.title}</p>
-            </div>
-          )}
-        </DragOverlay>
-      </DndContext>
+        {/* Unscheduled sidebar */}
+        <div className="w-[200px] border-l border-white/[0.04] flex flex-col">
+          <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/[0.04]">
+            <span className="text-[13px] font-medium text-zinc-300">Unscheduled</span>
+            <span className="text-[11px] text-zinc-600 bg-white/5 px-1.5 py-px rounded-full">{unscheduled.length}</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
+            {unscheduled.map((task) => (
+              <div
+                key={task.id}
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData('taskId', task.id)}
+                className="surface rounded-md p-2 border-l-[3px] cursor-grab active:cursor-grabbing"
+                style={{
+                  borderLeftColor:
+                    task.priority === 3 ? '#ef4444' : task.priority === 2 ? '#f59e0b' : task.priority === 1 ? '#3b82f6' : '#374151',
+                }}
+              >
+                <div className="text-[12px] font-medium text-zinc-200 leading-tight mb-0.5">{task.title}</div>
+                <div className="text-[10px] text-zinc-600">
+                  {task.due_date ? format(new Date(task.due_date), 'EEE d MMM') : 'No due date'}
+                </div>
+              </div>
+            ))}
+            {unscheduled.length === 0 && (
+              <div className="text-center text-[11px] text-zinc-700 py-6">All tasks scheduled</div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Status bar */}
-      <div className="px-4 py-2 border-t border-[rgba(255,255,255,0.06)] flex items-center gap-3 text-xs text-[#6b7280]">
-        <span>Week progress: <span className="text-[#6366f1] font-medium">{scheduledCount}</span>/{totalActive} scheduled</span>
-        <div className="w-24 h-1.5 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden ml-1">
-          <div className="h-full bg-[#6366f1] rounded-full transition-all" style={{ width: `${progressPct}%` }} />
+      <div className="flex items-center gap-3 px-5 py-2 text-[12px] text-zinc-600 border-t border-white/[0.04]">
+        Week progress: <span className="text-indigo-300">{doneCount}</span>/{scheduledCount} scheduled
+        <div className="w-20 h-1 bg-white/5 rounded-full overflow-hidden">
+          <div className="h-full bg-indigo-500 rounded-full transition-all" style={{ width: `${progressPct}%` }} />
         </div>
-        <span className="text-[#a5a5af]">{progressPct}%</span>
+        <span className="text-zinc-600">{progressPct}%</span>
       </div>
 
       <TaskDetailPanel />

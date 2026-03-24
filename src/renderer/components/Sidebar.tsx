@@ -1,24 +1,18 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useViewStore } from '@/stores/view-store';
 import { useTaskStore } from '@/stores/task-store';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { parseISO, isPast, isToday } from 'date-fns';
 import type { ViewType } from '@shared/types';
 
-interface NavItem {
-  id: ViewType;
-  label: string;
-  icon: React.ReactNode;
-}
-
-const navItems: NavItem[] = [
+const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   {
     id: 'kanban',
     label: 'Kanban',
     icon: (
-      <svg style={{ width: 20, height: 20 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
-        <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
       </svg>
     ),
   },
@@ -26,8 +20,9 @@ const navItems: NavItem[] = [
     id: 'week',
     label: 'Week',
     icon: (
-      <svg style={{ width: 20, height: 20 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18" />
       </svg>
     ),
   },
@@ -35,9 +30,8 @@ const navItems: NavItem[] = [
     id: 'timeline',
     label: 'Timeline',
     icon: (
-      <svg style={{ width: 20, height: 20 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 6h16" /><path d="M4 12h10" /><path d="M4 18h14" />
-        <circle cx="4" cy="6" r="1" fill="currentColor" /><circle cx="4" cy="12" r="1" fill="currentColor" /><circle cx="4" cy="18" r="1" fill="currentColor" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
+        <path d="M4 6h16M4 12h10M4 18h14" />
       </svg>
     ),
   },
@@ -45,8 +39,9 @@ const navItems: NavItem[] = [
     id: 'focus',
     label: 'Focus',
     icon: (
-      <svg style={{ width: 20, height: 20 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="3" />
       </svg>
     ),
   },
@@ -54,86 +49,113 @@ const navItems: NavItem[] = [
     id: 'recurrence',
     label: 'Recurring',
     icon: (
-      <svg style={{ width: 20, height: 20 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="m17 2 4 4-4 4" /><path d="M3 11v-1a4 4 0 0 1 4-4h14" /><path d="m7 22-4-4 4-4" /><path d="M21 13v1a4 4 0 0 1-4 4H3" />
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
+        <path d="M17 1l4 4-4 4" />
+        <path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4" />
+        <path d="M21 13v2a4 4 0 01-4 4H3" />
       </svg>
     ),
   },
 ];
 
-const settingsIcon = (
-  <svg style={{ width: 20, height: 20 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
-
 export function Sidebar() {
-  const { currentView, setView } = useViewStore();
+  const { currentView, setView, sidebarCollapsed, toggleSidebar } = useViewStore();
   const tasks = useTaskStore((s) => s.tasks);
 
-  const badges = useMemo(() => {
-    const overdue = tasks.filter((t) => t.due_date && isPast(parseISO(t.due_date)) && !isToday(parseISO(t.due_date)) && t.status !== 'done' && t.status !== 'archived').length;
-    const unscheduled = tasks.filter((t) => (!t.scheduled_date || !t.scheduled_slot) && t.status !== 'done' && t.status !== 'archived').length;
-    return { focus: overdue, week: unscheduled > 0 ? unscheduled : 0 };
-  }, [tasks]);
+  // Badge counts
+  const overdueCount = tasks.filter(
+    (t) => t.due_date && t.due_date < new Date().toISOString().split('T')[0] && t.status !== 'done' && t.status !== 'archived'
+  ).length;
 
-  const getBadge = (id: ViewType): number | null => {
-    if (id === 'focus' && badges.focus > 0) return badges.focus;
-    if (id === 'week' && badges.week > 0) return badges.week;
-    return null;
-  };
+  const unscheduledCount = tasks.filter(
+    (t) => t.due_date && !t.scheduled_date && t.status !== 'done' && t.status !== 'archived'
+  ).length;
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <aside className="w-[52px] bg-[#1a1a2e] border-r border-white/5 flex flex-col items-center py-3 shrink-0">
-        {/* Navigation items */}
-        <nav className="flex flex-col items-center gap-1 flex-1">
-          {navItems.map((item) => {
-            const isActive = currentView === item.id;
-            const badge = getBadge(item.id);
-            return (
-              <Tooltip key={item.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setView(item.id)}
-                    className={`relative w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
-                      isActive
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                        : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
-                    }`}
-                  >
-                    {item.icon}
-                    {badge !== null && (
-                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center px-1">
-                        {badge}
-                      </span>
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="text-xs">{item.label}{badge ? ` (${badge})` : ''}</TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </nav>
+    <div
+      className={`flex flex-col items-center py-3 gap-1 border-r border-subtle bg-[#0b0d12] transition-all duration-200 ${
+        sidebarCollapsed ? 'w-[52px]' : 'w-[180px]'
+      }`}
+    >
+      {/* Logo area */}
+      <div className="w-9 h-9 mb-2 flex items-center justify-center">
+        <span className="text-indigo-400 font-bold text-sm">TF</span>
+      </div>
 
-        {/* Settings at bottom */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={() => setView('settings')}
-              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all ${
-                currentView === 'settings'
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
-              }`}
-            >
-              {settingsIcon}
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right" className="text-xs">Settings</TooltipContent>
-        </Tooltip>
-      </aside>
-    </TooltipProvider>
+      {/* Nav items */}
+      {navItems.map((item) => {
+        const isActive = currentView === item.id;
+        const badge =
+          item.id === 'focus' && overdueCount > 0
+            ? overdueCount
+            : item.id === 'week' && unscheduledCount > 0
+            ? unscheduledCount
+            : null;
+
+        return (
+          <button
+            key={item.id}
+            onClick={() => setView(item.id)}
+            className={`relative flex items-center gap-2.5 rounded-lg transition-all duration-150 ${
+              sidebarCollapsed ? 'w-9 h-9 justify-center' : 'w-full px-3 h-9 justify-start'
+            } ${
+              isActive
+                ? 'bg-indigo-500 text-white'
+                : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-400'
+            }`}
+            title={sidebarCollapsed ? item.label : undefined}
+          >
+            {item.icon}
+            {!sidebarCollapsed && (
+              <span className="text-[13px] font-medium">{item.label}</span>
+            )}
+            {badge && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center px-1 rounded-full bg-red-500 text-white text-[10px] font-medium">
+                {badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Settings */}
+      <button
+        onClick={() => setView('settings')}
+        className={`flex items-center gap-2.5 rounded-lg transition-all duration-150 ${
+          sidebarCollapsed ? 'w-9 h-9 justify-center' : 'w-full px-3 h-9 justify-start'
+        } ${
+          currentView === 'settings'
+            ? 'bg-indigo-500 text-white'
+            : 'text-zinc-500 hover:bg-white/5 hover:text-zinc-400'
+        }`}
+        title={sidebarCollapsed ? 'Settings' : undefined}
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-[18px] h-[18px]">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+        </svg>
+        {!sidebarCollapsed && <span className="text-[13px] font-medium">Settings</span>}
+      </button>
+
+      {/* Collapse toggle */}
+      <button
+        onClick={toggleSidebar}
+        className="w-9 h-9 flex items-center justify-center rounded-lg text-zinc-600 hover:bg-white/5 hover:text-zinc-400 mt-1"
+        title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className={`w-4 h-4 transition-transform ${sidebarCollapsed ? '' : 'rotate-180'}`}
+        >
+          <path d="M9 18l6-6-6-6" />
+        </svg>
+      </button>
+    </div>
   );
 }
