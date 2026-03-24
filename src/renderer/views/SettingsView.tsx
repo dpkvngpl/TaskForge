@@ -12,6 +12,7 @@ import type { TaskPriority } from '@shared/types';
 export function SettingsView() {
   const { settings, updateSetting } = useSettingsStore();
   const tasks = useTaskStore((s) => s.tasks);
+  const loadTasks = useTaskStore((s) => s.loadTasks);
   const [newCategory, setNewCategory] = useState('');
   const [appVersion, setAppVersion] = useState('');
   const [dataPath, setDataPath] = useState('');
@@ -203,20 +204,54 @@ export function SettingsView() {
             <p><span className="text-muted-foreground">Backup:</span> {dataPath}/taskforge.db.bak</p>
             <p><span className="text-muted-foreground">Total tasks:</span> {tasks.length}</p>
           </div>
-          <Button variant="outline" size="sm" className="mt-3" onClick={handleExport}>
-            Export to JSON
-          </Button>
+          <div className="flex gap-2 mt-3">
+            <Button variant="outline" size="sm" onClick={handleExport}>Export JSON</Button>
+            <Button variant="outline" size="sm" onClick={async () => {
+              const csv = await window.taskforge.data.exportCSV();
+              const blob = new Blob([csv], { type: 'text/csv' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `taskforge-export-${new Date().toISOString().slice(0, 10)}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}>Export CSV</Button>
+            <Button variant="outline" size="sm" onClick={async () => {
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.json';
+              input.onchange = async () => {
+                const file = input.files?.[0];
+                if (!file) return;
+                const text = await file.text();
+                const result = await window.taskforge.data.importJSON(text);
+                alert(`Imported ${result.imported} tasks`);
+                loadTasks();
+              };
+              input.click();
+            }}>Import JSON</Button>
+          </div>
         </section>
 
         <Separator />
 
-        {/* About */}
+        {/* About & Keyboard Shortcuts */}
         <section>
           <h2 className="text-lg font-semibold mb-3">About</h2>
-          <div className="text-sm text-muted-foreground space-y-1">
+          <div className="text-sm text-muted-foreground space-y-1 mb-4">
             <p>TaskForge v{appVersion || '1.0.0'}</p>
-            <p>Built with Electron + React</p>
+            <p>Built with Electron + React + SQLite</p>
             <p>Local-first task planner and scheduler</p>
+            <p className="text-xs mt-2">Data location: {dataPath}</p>
+          </div>
+          <h3 className="text-sm font-semibold mb-2">Keyboard Shortcuts</h3>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <div className="flex justify-between"><span>Quick add task</span><kbd className="bg-muted px-1.5 rounded">Ctrl+N</kbd></div>
+            <div className="flex justify-between"><span>Undo last action</span><kbd className="bg-muted px-1.5 rounded">Ctrl+Z</kbd></div>
+            <div className="flex justify-between"><span>Switch views</span><kbd className="bg-muted px-1.5 rounded">Ctrl+1-5</kbd></div>
+            <div className="flex justify-between"><span>Set priority (selected task)</span><kbd className="bg-muted px-1.5 rounded">1-4</kbd></div>
+            <div className="flex justify-between"><span>Close dialog/panel</span><kbd className="bg-muted px-1.5 rounded">Escape</kbd></div>
+            <div className="flex justify-between"><span>Save task form</span><kbd className="bg-muted px-1.5 rounded">Ctrl+Enter</kbd></div>
           </div>
         </section>
       </div>

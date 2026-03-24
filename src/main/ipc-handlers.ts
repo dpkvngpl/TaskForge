@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron';
+import { getDb } from './database/index';
 import { getAllTasks, getTaskById, createTask, updateTask, deleteTask, reorderTask, batchUpdateStatus } from './database/tasks';
 import { getSetting, setSetting, getAllSettings } from './database/settings';
 import { getRecentActivity, undoLastAction } from './database/activity-log';
@@ -71,6 +72,43 @@ export function registerTaskHandlers(): void {
   // ---- Notifications ----
   ipcMain.handle(IPC.NOTIFICATIONS_GET_OVERDUE_COUNT, () => {
     return checkOverdueOnStartup();
+  });
+
+  // ---- Data Export/Import ----
+  ipcMain.handle('data:exportJSON', () => {
+    const db = getDb();
+    const tasks = db.prepare('SELECT * FROM tasks').all();
+    const templates = db.prepare('SELECT * FROM task_templates').all();
+    return JSON.stringify({ tasks, templates, exportDate: new Date().toISOString() }, null, 2);
+  });
+
+  ipcMain.handle('data:exportCSV', () => {
+    const db = getDb();
+    const tasks = db.prepare('SELECT * FROM tasks').all() as Record<string, unknown>[];
+    if (tasks.length === 0) return '';
+    const headers = Object.keys(tasks[0]);
+    const rows = tasks.map(t => headers.map(h => {
+      const val = t[h];
+      if (val === null) return '';
+      if (typeof val === 'string' && val.includes(',')) return `"${val}"`;
+      return String(val);
+    }).join(','));
+    return [headers.join(','), ...rows].join('\n');
+  });
+
+  ipcMain.handle('data:importJSON', (_event, jsonString: string) => {
+    const data = JSON.parse(jsonString);
+    const db = getDb();
+    if (!data.tasks || data.tasks.length === 0) return { imported: 0 };
+    const columns = Object.keys(data.tasks[0]);
+    const placeholders = columns.map(() => '?').join(',');
+    const insertTask = db.prepare(`INSERT OR REPLACE INTO tasks (${columns.join(',')}) VALUES (${placeholders})`);
+    db.transaction(() => {
+      for (const task of data.tasks) {
+        insertTask.run(...columns.map(c => task[c] ?? null));
+      }
+    })();
+    return { imported: data.tasks.length };
   });
 
   // ---- Connectors ----

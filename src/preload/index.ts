@@ -50,6 +50,12 @@ const api = {
     quit: () => ipcRenderer.send('app:quit'),
   },
 
+  data: {
+    exportJSON: () => ipcRenderer.invoke('data:exportJSON'),
+    exportCSV: () => ipcRenderer.invoke('data:exportCSV'),
+    importJSON: (jsonString: string) => ipcRenderer.invoke('data:importJSON', jsonString),
+  },
+
   connectors: {
     list: () => ipcRenderer.invoke('connector:list'),
     authenticate: (connectorId: string) => ipcRenderer.invoke('connector:authenticate', connectorId),

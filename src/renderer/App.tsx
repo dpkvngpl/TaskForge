@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { KanbanView } from './views/KanbanView';
 import { WeekView } from './views/WeekView';
 import { TimelineView } from './views/TimelineView';
@@ -23,12 +24,29 @@ export default function App() {
   const loadTasks = useTaskStore((s) => s.loadTasks);
   const loadSettings = useSettingsStore((s) => s.loadSettings);
 
+  const theme = useSettingsStore((s) => s.settings.theme);
+
   useEffect(() => {
     loadTasks();
     loadSettings();
-    // Apply dark class by default
-    document.documentElement.classList.add('dark');
   }, [loadTasks, loadSettings]);
+
+  // Apply theme
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else if (theme === 'light') {
+      root.classList.remove('dark');
+    } else {
+      // system
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      root.classList.toggle('dark', mq.matches);
+      const handler = (e: MediaQueryListEvent) => root.classList.toggle('dark', e.matches);
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+  }, [theme]);
 
   useEffect(() => {
     const cleanup = window.taskforge.on.quickAdd(() => {
@@ -86,7 +104,9 @@ export default function App() {
     <div className="flex h-screen overflow-hidden bg-[#0f0f1a] text-gray-100">
       <Sidebar />
       <main className="flex-1 overflow-hidden flex flex-col">
-        {renderView()}
+        <ErrorBoundary>
+          {renderView()}
+        </ErrorBoundary>
       </main>
     </div>
   );
